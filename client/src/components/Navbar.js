@@ -5,13 +5,15 @@ import axios from "axios";
 
 function Navbar({ token, setToken }) {
   const navigate = useNavigate();
-  const [username, setUsername] = useState("User"); 
+  const [username, setUsername] = useState("User");
+  const [menuOpen, setMenuOpen] = useState(false);
   const userId = token ? jwtDecode(token).userId : null;
 
   useEffect(() => {
     if (token && userId) {
       const decodedToken = jwtDecode(token);
-      const tokenUsername = decodedToken.username || decodedToken.name || decodedToken.user || null;
+      const tokenUsername =
+        decodedToken.username || decodedToken.name || decodedToken.user || null;
       if (tokenUsername) {
         setUsername(tokenUsername);
       } else {
@@ -37,41 +39,76 @@ function Navbar({ token, setToken }) {
     navigate("/login");
   };
 
+  const toggleMenu = () => {
+    setMenuOpen((prev) => !prev);
+  };
+
   return (
     <div className="navbar">
       <div className="nav-brand">
-        <h1>Let's Chat</h1>
+        <Link to={"/"}>
+          <h1>Let's Chat</h1>
+          <i class="bx bxs-message-alt"></i>
+        </Link>
       </div>
       <div className="nav-user">
-        {token ? <h3>Welcome, <span>{username}</span></h3> : null}
+        {token ? (
+          <h3>
+            Welcome, <span>{username}</span>
+          </h3>
+        ) : null}
       </div>
-      <ul className="nav-links">
+
+      <div className="hamburger" onClick={toggleMenu}>
+        &#9776;
+      </div>
+
+      <ul className={`nav-links ${menuOpen ? "active" : ""}`}>
         {token ? (
           <>
             <li>
-              <Link to="/">Dashboard</Link>
+              <Link to="/" onClick={() => setMenuOpen(false)}>
+                Dashboard
+              </Link>
             </li>
             <li>
-              <Link to="/pending">Chats</Link>
+              <Link
+                to={`/chat/private/${userId}`}
+                onClick={() => setMenuOpen(false)}
+              >
+                Chats
+              </Link>
             </li>
             <li>
-              <Link to="/pending">Groups</Link>
+              <Link to="/groups" onClick={() => setMenuOpen(false)}>
+                Groups
+              </Link>
             </li>
             <li>
-              <Link to="/profile">Profile</Link>
+              <Link to="/profile" onClick={() => setMenuOpen(false)}>
+                Profile
+              </Link>
             </li>
+            <button onClick={handleLogout} className="logout-btn-li">
+              Logout
+            </button>
           </>
         ) : (
           <>
             <li>
-              <Link to="/login">Login</Link>
+              <Link to="/login" onClick={() => setMenuOpen(false)}>
+                Login
+              </Link>
             </li>
             <li>
-              <Link to="/register">Register</Link>
+              <Link to="/register" onClick={() => setMenuOpen(false)}>
+                Register
+              </Link>
             </li>
           </>
         )}
       </ul>
+
       <div className="nav-user">
         {token ? (
           <button onClick={handleLogout} className="logout-btn">

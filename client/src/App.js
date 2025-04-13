@@ -8,36 +8,51 @@ import "./App.css";
 import Navbar from "./components/Navbar";
 import Profile from "./components/Profile";
 import PendingPage from "./components/PendingPage";
+import Groups from "./components/Groups";
+import Footer from "./components/Footer";
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token"));
 
   return (
     <Router>
-      <Navbar token={token} setToken={setToken} />
-
       <div className="app-container">
-        <Routes>
-          <Route path="/register" element={<Register setToken={setToken} />} />
-          <Route path="/login" element={<Login setToken={setToken} />} />
-          <Route
-            path="/"
-            element={
-              token ? (
-                <Dashboard token={token} setToken={setToken} />
-              ) : (
-                <Login setToken={setToken} />
-              )
-            }
-          />
-          <Route path="/pending" element={<PendingPage />} />
+        <Navbar token={token} setToken={setToken} />
 
-          <Route
-            path="/chat/private/:userId"
-            element={<Chat token={token} />}
-          />
-          <Route path="/chat/group/:groupId" element={<Chat token={token} />} />
-            <Route path="/profile" element={<Profile token={token}/>} />
-        </Routes>
+        <div className="main-content">
+          <Routes>
+            <Route
+              path="/register"
+              element={<Register setToken={setToken} />}
+            />
+            <Route path="/login" element={<Login setToken={setToken} />} />
+            <Route
+              path="/"
+              element={
+                token ? (
+                  <Dashboard token={token} setToken={setToken} />
+                ) : (
+                  <Login setToken={setToken} />
+                )
+              }
+            />
+            <Route path="/pending" element={<PendingPage />} />
+            <Route
+              path="/chat/private/:userId"
+              element={<Chat token={token} />}
+            />
+            <Route
+              path="/chat/group/:groupId"
+              element={<Chat token={token} />}
+            />
+            <Route
+              path="/groups"
+              element={<Groups token={token} setToken={setToken} />}
+            />
+            <Route path="/profile" element={<Profile token={token} />} />
+          </Routes>
+        </div>
+
+        <Footer />
       </div>
     </Router>
   );
