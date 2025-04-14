@@ -131,6 +131,16 @@ function Navbar({ token, setToken }) {
                 Register
               </Link>
             </li>
+            <li>
+              <Link>
+                <i
+                  id="theme"
+                  className={`bx ${isDark ? "bx-sun" : "bx-moon"} theme-toggle`}
+                  onClick={toggleTheme}
+                  title="Toggle Dark Theme"
+                ></i>
+              </Link>
+            </li>
           </>
         )}
       </ul>
