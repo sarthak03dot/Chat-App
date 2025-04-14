@@ -7,6 +7,9 @@ function Navbar({ token, setToken }) {
   const navigate = useNavigate();
   const [username, setUsername] = useState("User");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isDark, setIsDark] = useState(
+    () => localStorage.getItem("theme") === "dark"
+  );
   const userId = token ? jwtDecode(token).userId : null;
 
   useEffect(() => {
@@ -33,6 +36,19 @@ function Navbar({ token, setToken }) {
     }
   }, [token, userId]);
 
+  useEffect(() => {
+    if (isDark) {
+      document.body.classList.add("dark-mode");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.body.classList.remove("dark-mode");
+      localStorage.setItem("theme", "light");
+    }
+  }, [isDark]);
+  const toggleTheme = () => {
+    setIsDark((prev) => !prev);
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("token");
     setToken(null);
@@ -48,7 +64,7 @@ function Navbar({ token, setToken }) {
       <div className="nav-brand">
         <Link to={"/"}>
           <h1>Let's Chat</h1>
-          <i class="bx bxs-message-alt"></i>
+          <i className="bx bxs-message-alt"></i>
         </Link>
       </div>
       <div className="nav-user">
@@ -87,6 +103,16 @@ function Navbar({ token, setToken }) {
             <li>
               <Link to="/profile" onClick={() => setMenuOpen(false)}>
                 Profile
+              </Link>
+            </li>
+            <li>
+              <Link>
+                <i
+                  id="theme"
+                  className={`bx ${isDark ? "bx-sun" : "bx-moon"} theme-toggle`}
+                  onClick={toggleTheme}
+                  title="Toggle Dark Theme"
+                ></i>
               </Link>
             </li>
             <button onClick={handleLogout} className="logout-btn-li">
