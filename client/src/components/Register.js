@@ -8,18 +8,16 @@ function Register() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const API = process.env.REACT_APP_API;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const { data } = await axios.post(
-        "http://localhost:5000/api/auth/register",
-        {
-          username,
-          email,
-          password,
-        }
-      );
+      const { data } = await axios.post(`${API}/api/auth/register`, {
+        username,
+        email,
+        password,
+      });
       localStorage.setItem("token", data.token);
       setError("");
       navigate("/");

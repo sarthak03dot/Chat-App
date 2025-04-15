@@ -2,6 +2,7 @@ import axios from "axios";
 // import { jwtDecode } from "jwt-decode";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+const API = process.env.REACT_APP_API;
 
 const Groups = ({ token, setToken }) => {
   const [recentChats,setRecentChats] = useState([]); // Private chats
@@ -17,7 +18,7 @@ const Groups = ({ token, setToken }) => {
     const fetchGroups = async () => {
       try {
         const { data } = await axios.get(
-          "http://localhost:5000/api/groups/all",
+          `${API}/api/groups/all`,
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -37,7 +38,7 @@ const Groups = ({ token, setToken }) => {
     e.preventDefault();
     try {
       const { data } = await axios.post(
-        "http://localhost:5000/api/groups",
+        `${API}/api/groups`,
         { name: newGroupName },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -62,7 +63,7 @@ const Groups = ({ token, setToken }) => {
   const deleteGroup = async (groupId, name) => {
     try {
       const response = await axios.delete(
-        `http://localhost:5000/api/groups/${groupId}`,
+        `${API}/api/groups/${groupId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -109,7 +110,7 @@ const Groups = ({ token, setToken }) => {
   const addMember = async (groupId) => {
     try {
       const response = await axios.put(
-        `http://localhost:5000/api/groups/${groupId}/members`,
+        `${API}/api/groups/${groupId}/members`,
         { memberId: newMemberId },
         { headers: { Authorization: `Bearer ${token}` } }
       );

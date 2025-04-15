@@ -2,6 +2,7 @@ import { jwtDecode } from "jwt-decode";
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+const API = process.env.REACT_APP_API;
 
 function Navbar({ token, setToken }) {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ function Navbar({ token, setToken }) {
       } else {
         // Fetch username from backend if not in token
         axios
-          .get(`http://localhost:5000/api/users/${userId}`, {
+          .get(`${API}/api/users/${userId}`, {
             headers: { Authorization: `Bearer ${token}` },
           })
           .then((response) => {

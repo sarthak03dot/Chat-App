@@ -3,8 +3,10 @@ import { useParams } from 'react-router-dom';
 import io from 'socket.io-client';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
+const API = process.env.REACT_APP_API;
 
-const socket = io('http://localhost:5000', {
+
+const socket = io(`${API}`, {
   transports: ['websocket', 'polling'],
 });
 
@@ -23,8 +25,8 @@ function Chat({ token }) {
     const fetchMessages = async () => {
       try {
         const url = userId
-          ? `http://localhost:5000/api/chat/messages/${userId}`
-          : `http://localhost:5000/api/chat/group/${groupId}`;
+          ? `${API}/api/chat/messages/${userId}`
+          : `${API}/api/chat/group/${groupId}`;
         const { data } = await axios.get(url, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -53,7 +55,7 @@ function Chat({ token }) {
   useEffect(() => {
     const fetchAllUsers = async () => {
       try {
-        const { data } = await axios.get('http://localhost:5000/api/users', {
+        const { data } = await axios.get(`${API}/api/users`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setUsers(data);
@@ -93,7 +95,7 @@ function Chat({ token }) {
     formData.append('file', file);
     try {
       const { data } = await axios.post(
-        'http://localhost:5000/api/upload',
+        `${API}/api/upload`,
         formData,
         {
           headers: {

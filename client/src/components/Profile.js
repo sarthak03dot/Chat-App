@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { jwtDecode } from 'jwt-decode';
+const API = process.env.REACT_APP_API;
 
 function Profile({ token }) {
   const userId = jwtDecode(token).userId;
@@ -13,7 +14,7 @@ function Profile({ token }) {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const { data } = await axios.get(`http://localhost:5000/api/users/${userId}`, {
+        const { data } = await axios.get(`${API}/api/users/${userId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setUserData({ username: data.username || 'Unknown', email: data.email || '' });
@@ -31,7 +32,7 @@ function Profile({ token }) {
     e.preventDefault();
     try {
       const { data } = await axios.put(
-        `http://localhost:5000/api/users/${userId}`,
+        `${API}/api/users/${userId}`,
         { username: newUsername },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -51,7 +52,7 @@ function Profile({ token }) {
     e.preventDefault();
     try {
       const { data } = await axios.put(
-        `http://localhost:5000/api/users/${userId}`,
+        `${API}/api/users/${userId}`,
         { password: newPassword },
         { headers: { Authorization: `Bearer ${token}` } }
       );
