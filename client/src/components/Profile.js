@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { jwtDecode } from 'jwt-decode';
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { jwtDecode } from "jwt-decode";
+import ProfileImg from "../Assets/profile01.webp";
 const API = process.env.REACT_APP_API;
 
 function Profile({ token }) {
   const userId = jwtDecode(token).userId;
-  const [userData, setUserData] = useState({ username: '', email: '' });
-  const [newUsername, setNewUsername] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [userData, setUserData] = useState({ username: "", email: "" });
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -17,11 +18,17 @@ function Profile({ token }) {
         const { data } = await axios.get(`${API}/api/users/${userId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setUserData({ username: data.username || 'Unknown', email: data.email || '' });
-        setNewUsername(data.username || '');
+        setUserData({
+          username: data.username || "Unknown",
+          email: data.email || "",
+        });
+        setNewUsername(data.username || "");
       } catch (err) {
-        setError('Failed to fetch user data: ' + (err.response?.data?.message || err.message || 'Unknown error'));
-        console.error('Fetch user data error:', err);
+        setError(
+          "Failed to fetch user data: " +
+            (err.response?.data?.message || err.message || "Unknown error")
+        );
+        console.error("Fetch user data error:", err);
       }
     };
     fetchUserData();
@@ -37,13 +44,16 @@ function Profile({ token }) {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setUserData((prev) => ({ ...prev, username: newUsername }));
-      setSuccess(data.message || 'Username updated successfully!');
-      setError('');
-      setTimeout(() => setSuccess(''), 3000); // Clear success message after 3 seconds
+      setSuccess(data.message || "Username updated successfully!");
+      setError("");
+      setTimeout(() => setSuccess(""), 3000); // Clear success message after 3 seconds
     } catch (err) {
-      setError('Failed to update username: ' + (err.response?.data?.message || err.message || 'Server error'));
-      console.error('Update username error:', err);
-      setSuccess('');
+      setError(
+        "Failed to update username: " +
+          (err.response?.data?.message || err.message || "Server error")
+      );
+      console.error("Update username error:", err);
+      setSuccess("");
     }
   };
 
@@ -56,14 +66,17 @@ function Profile({ token }) {
         { password: newPassword },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setNewPassword('');
-      setSuccess(data.message || 'Password updated successfully!');
-      setError('');
-      setTimeout(() => setSuccess(''), 3000); // Clear success message after 3 seconds
+      setNewPassword("");
+      setSuccess(data.message || "Password updated successfully!");
+      setError("");
+      setTimeout(() => setSuccess(""), 3000); // Clear success message after 3 seconds
     } catch (err) {
-      setError('Failed to update password: ' + (err.response?.data?.message || err.message || 'Server error'));
-      console.error('Update password error:', err);
-      setSuccess('');
+      setError(
+        "Failed to update password: " +
+          (err.response?.data?.message || err.message || "Server error")
+      );
+      console.error("Update password error:", err);
+      setSuccess("");
     }
   };
 
@@ -73,9 +86,20 @@ function Profile({ token }) {
       {error && <div className="error-message">{error}</div>}
       {success && <div className="success-message">{success}</div>}
       <div className="profile-info">
-        <p><strong>User ID:</strong> {userId}</p>
-        <p><strong>Username:</strong> {userData.username}</p>
-        <p><strong>Email:</strong> {userData.email || 'Not provided'}</p>
+        <div>
+          <p>
+            <strong>User ID:</strong> {userId}
+          </p>
+          <p>
+            <strong>Username:</strong> {userData.username}
+          </p>
+          <p>
+            <strong>Email:</strong> {userData.email || "Not provided"}
+          </p>
+        </div>
+        <div className="profile-img">
+          <img src={ProfileImg} alt="Profile Picture" />
+        </div>
       </div>
 
       <form onSubmit={updateUsername} className="profile-form">

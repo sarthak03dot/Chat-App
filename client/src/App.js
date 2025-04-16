@@ -21,11 +21,6 @@ function App() {
         <div className="main-content">
           <Routes>
             <Route
-              path="/register"
-              element={<Register setToken={setToken} />}
-            />
-            <Route path="/login" element={<Login setToken={setToken} />} />
-            <Route
               path="/"
               element={
                 token ? (
@@ -35,6 +30,12 @@ function App() {
                 )
               }
             />
+            <Route
+              path="/register"
+              element={<Register setToken={setToken} />}
+            />
+            <Route path="/login" element={<Login setToken={setToken} />} />
+
             <Route path="/pending" element={<PendingPage />} />
             <Route
               path="/chat/private/:userId"

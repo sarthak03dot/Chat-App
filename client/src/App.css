@@ -26,12 +26,12 @@ body {
 }
 
 body.dark-mode {
-  --primary-color: #2e7d32;
+  --primary-color: #ffb71a;
   --secondary-color: #d32f2f;
   --accent-color: #ffffff;
-  --background-neutral: #f5f5f5;
-  --text-neutral: #212121;
-  --navbar-dark: #1a237e;
+  --background-neutral: #9c9a9a;
+  --text-neutral: #ffffff;
+  --navbar-dark: #9955da;
 }
 
 
@@ -482,6 +482,16 @@ body.dark-mode {
   border-radius: 8px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
   margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  text-align: left;
+  align-items: center;
+}
+
+.profile-img img{
+  height: 60px;
+  width: 60px;
+  border-radius: 40%;
 }
 
 .profile-form {
