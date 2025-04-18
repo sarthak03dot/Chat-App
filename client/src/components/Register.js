@@ -1,14 +1,28 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
+import ProfileImg from "../Assets/profile01.webp";
 
 function Register() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [profile, setProfile] = useState(ProfileImg);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const API = process.env.REACT_APP_API;
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfile(reader.result.toString());
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,6 +30,8 @@ function Register() {
       const { data } = await axios.post(`${API}/api/auth/register`, {
         username,
         email,
+        phone,
+        profile,
         password,
       });
       localStorage.setItem("token", data.token);
@@ -48,6 +64,27 @@ function Register() {
             placeholder="Email"
             required
           />
+        </div>
+        <div className="form-group">
+          <input
+            type="number"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="Phone Number"
+            required
+          />
+        </div>
+        <div className="form-group">
+          <input type="file" accept="image/*" onChange={handleFileChange} />
+          {profile && (
+            <div className="preview">
+              <img
+                src={profile}
+                alt="Profile Preview"
+                className="preview-image"
+              />
+            </div>
+          )}
         </div>
         <div className="form-group">
           <input

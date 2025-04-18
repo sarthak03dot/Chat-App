@@ -1,16 +1,21 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
-import ProfileImg from "../Assets/profile01.webp";
 const API = process.env.REACT_APP_API;
 
 function Profile({ token }) {
   const userId = jwtDecode(token).userId;
-  const [userData, setUserData] = useState({ username: "", email: "" });
+  const [userData, setUserData] = useState({
+    username: "Unknown",
+    email: "Unknown",
+    phone: "",
+    profile: "No Profile",
+  });
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [selectedProfile, setSelectedProfile] = useState(null);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -21,6 +26,8 @@ function Profile({ token }) {
         setUserData({
           username: data.username || "Unknown",
           email: data.email || "",
+          phone : data.phone || "",
+          profile: data.profile || "",
         });
         setNewUsername(data.username || "");
       } catch (err) {
@@ -41,7 +48,12 @@ function Profile({ token }) {
       const { data } = await axios.put(
         `${API}/api/users/${userId}`,
         { username: newUsername },
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
       );
       setUserData((prev) => ({ ...prev, username: newUsername }));
       setSuccess(data.message || "Username updated successfully!");
@@ -80,6 +92,50 @@ function Profile({ token }) {
     }
   };
 
+  // profile
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedProfile(file);
+    }
+  };
+
+  const updateProfilePicture = async (e) => {
+    e.preventDefault();
+    if (!selectedProfile) {
+      setError("Please select an image to upload.");
+      return;
+    }
+    const formData = new FormData();
+    formData.append("profile", selectedProfile);
+
+    try {
+      const { data } = await axios.put(
+        `${API}/api/upload/${userId}/profile`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+      setUserData((prev) => ({ ...prev, profile: data.profile }));
+      setSelectedProfile(null);
+      e.target.reset();
+      setSuccess("Profile picture updated successfully");
+      setError("");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      setError(
+        "Failed to update profile picture: " +
+          (err.response?.data?.message || err.message)
+      );
+      setSuccess("");
+    }
+  };
+
   return (
     <div className="profile-content">
       <h2>Profile</h2>
@@ -95,10 +151,31 @@ function Profile({ token }) {
           </p>
           <p>
             <strong>Email:</strong> {userData.email || "Not provided"}
+          </p>{" "}
+          <p>
+            <strong>Phone:</strong> {userData.phone || "Not provided"}
           </p>
         </div>
-        <div className="profile-img">
-          <img src={ProfileImg} alt="Profile Picture" />
+        <div className="profile-img ">
+          <img
+            src={
+              userData.profile
+                ? `${API}${userData.profile.startsWith("/") ? "" : "/"}${
+                    userData.profile
+                  }`
+                : ""
+            }
+            alt={userData.username || "User"}
+          />
+          <form onSubmit={updateProfilePicture} className="profile-form">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              required
+            />
+            <button type="submit">Update Profile</button>
+          </form>
         </div>
       </div>
 

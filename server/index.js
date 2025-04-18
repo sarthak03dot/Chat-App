@@ -187,87 +187,94 @@
 //   console.log(`Server is listening on PORT: ${PORT}`);
 // });
 
-
-
-
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const dotenv = require('dotenv');
-const http = require('http');
-const { Server } = require('socket.io');
-const authRoutes = require('./routes/authRoute');
-const chatRoutes = require('./routes/chatRoutes');
-const uploadRoutes = require('./routes/uploadRoutes');
-const usersRoutes = require('./routes/userRoutes');
-const groupsRoutes = require('./routes/groupRoutes');
-const User = require('./models/User');
-const Message = require('./models/Message');
-const Group = require('./models/Group');
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const dotenv = require("dotenv");
+const bodyParser = require("body-parser");
+const http = require("http");
+const { Server } = require("socket.io");
+const authRoutes = require("./routes/authRoute");
+const chatRoutes = require("./routes/chatRoutes");
+const uploadRoutes = require("./routes/uploadRoutes");
+const usersRoutes = require("./routes/userRoutes");
+const groupsRoutes = require("./routes/groupRoutes");
+const User = require("./models/User");
+const Message = require("./models/Message");
+const Group = require("./models/Group");
 
 dotenv.config();
 
 const app = express();
+app.use(bodyParser.json({ limit: "10mb" })); 
+app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: 'http://localhost:3000',
-    methods: ['GET', 'POST'],
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST"],
   },
 });
 
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static('uploads'));
-app.use('/api/auth', authRoutes);
-app.use('/api/chat', chatRoutes);
-app.use('/api/upload', uploadRoutes);
-app.use('/api/users', usersRoutes);
-app.use('/api/groups', groupsRoutes);
+app.use("/uploads", express.static("uploads"));
+app.use("/api/auth", authRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/upload", uploadRoutes);
+app.use("/api/users", usersRoutes);
+app.use("/api/groups", groupsRoutes);
 
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB Connected!'))
-  .catch((err) => console.log('Error:', err));
+  .then(() => console.log("MongoDB Connected!"))
+  .catch((err) => console.log("Error:", err));
 
-io.on('connection', (socket) => {
-  console.log('User Connected:', socket.id);
+io.on("connection", (socket) => {
+  console.log("User Connected:", socket.id);
 
-  socket.on('join', async ({ userId }) => {
+  socket.on("join", async ({ userId }) => {
     try {
       socket.join(userId.toString());
       await User.findByIdAndUpdate(userId, { online: true });
-      io.emit('userStatus', { userId, online: true });
+      io.emit("userStatus", { userId, online: true });
       console.log(`User ${userId} joined`);
     } catch (err) {
-      console.error('Join error:', err);
+      console.error("Join error:", err);
     }
   });
 
-  socket.on('sendMessage', async (data) => {
+  socket.on("sendMessage", async (data) => {
     try {
-      console.log('Received sendMessage:', data);
+      console.log("Received sendMessage:", data);
       const message = new Message(data);
       await message.save();
-      console.log('Message saved:', message._id);
+      console.log("Message saved:", message._id);
 
       // Populate sender to get username
-      const populatedMessage = await Message.findById(message._id).populate('sender', 'username');
+      const populatedMessage = await Message.findById(message._id).populate(
+        "sender",
+        "username"
+      );
       const senderUsername = populatedMessage.sender.username;
       const senderId = populatedMessage.sender._id.toString();
 
       if (data.recipient) {
         const recipientId = data.recipient.toString();
-        io.to(recipientId).emit('receiveMessage', populatedMessage);
-        console.log(`Emitted to recipient: ${recipientId} (${await getUsername(recipientId)})`);
+        io.to(recipientId).emit("receiveMessage", populatedMessage);
+        console.log(
+          `Emitted to recipient: ${recipientId} (${await getUsername(
+            recipientId
+          )})`
+        );
         if (senderId !== recipientId) {
-          socket.emit('receiveMessage', populatedMessage);
+          socket.emit("receiveMessage", populatedMessage);
           console.log(`Emitted to sender: ${senderId} (${senderUsername})`);
         }
       } else if (data.group) {
-        const group = await Group.findById(data.group).select('members');
+        const group = await Group.findById(data.group).select("members");
         if (!group) {
-          throw new Error('Group not found');
+          throw new Error("Group not found");
         }
         const members = group.members || [];
         if (members.length === 0) {
@@ -276,7 +283,7 @@ io.on('connection', (socket) => {
         for (const member of members) {
           const memberId = member.toString();
           if (io.sockets.adapter.rooms.has(memberId)) {
-            io.to(memberId).emit('receiveMessage', populatedMessage);
+            io.to(memberId).emit("receiveMessage", populatedMessage);
             const memberUsername = await getUsername(memberId);
             console.log(`Emitted to member: ${memberId} (${memberUsername})`);
           } else {
@@ -284,29 +291,31 @@ io.on('connection', (socket) => {
           }
         }
         if (members.includes(senderId)) {
-          socket.emit('receiveMessage', populatedMessage);
-          console.log(`Emitted to sender (group): ${senderId} (${senderUsername})`);
+          socket.emit("receiveMessage", populatedMessage);
+          console.log(
+            `Emitted to sender (group): ${senderId} (${senderUsername})`
+          );
         }
       }
     } catch (err) {
-      console.error('Send message error:', err);
-      socket.emit('error', { message: 'Failed to send message' });
+      console.error("Send message error:", err);
+      socket.emit("error", { message: "Failed to send message" });
     }
   });
 
-  socket.on('disconnect', async () => {
+  socket.on("disconnect", async () => {
     try {
-      console.log('User disconnected:', socket.id);
+      console.log("User disconnected:", socket.id);
       const user = await User.findOneAndUpdate(
         { online: true },
         { online: false },
         { new: true }
       );
       if (user) {
-        io.emit('userStatus', { userId: user._id, online: false });
+        io.emit("userStatus", { userId: user._id, online: false });
       }
     } catch (err) {
-      console.error('Disconnect error:', err);
+      console.error("Disconnect error:", err);
     }
   });
 });
@@ -314,11 +323,11 @@ io.on('connection', (socket) => {
 // Helper function to get username by userId
 async function getUsername(userId) {
   try {
-    const user = await User.findById(userId).select('username');
-    return user ? user.username : 'Unknown';
+    const user = await User.findById(userId).select("username");
+    return user ? user.username : "Unknown";
   } catch (err) {
-    console.error('Error fetching username:', err);
-    return 'Unknown';
+    console.error("Error fetching username:", err);
+    return "Unknown";
   }
 }
 

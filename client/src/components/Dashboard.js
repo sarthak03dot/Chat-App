@@ -108,7 +108,6 @@ function Dashboard({ token, setToken }) {
           }
         );
         setGroups(data);
-        console.log(data);
       } catch (err) {
         console.error({ text: "Fetch groups error:", err, type: "error" });
         setMessage({ text: "Failed to load groups", type: "error" });

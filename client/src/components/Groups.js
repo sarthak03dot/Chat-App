@@ -24,7 +24,6 @@ const Groups = ({ token, setToken }) => {
           }
         );
         setGroups(data);
-        console.log("Fetched groups:", data); // Debug log
       } catch (err) {
         console.error("Fetch groups error:", err);
         setMessage({ text: "Failed to load groups", type: "error" });
