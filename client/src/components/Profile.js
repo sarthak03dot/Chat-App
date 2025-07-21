@@ -1,7 +1,58 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
+import {
+  Box,
+  Typography,
+  Paper,
+  TextField,
+  Button,
+  Alert,
+  Avatar,
+  Card,
+  CardContent,
+  Divider,
+  Grid,
+  IconButton,
+} from "@mui/material";
+import { PhotoCamera, Save } from "@mui/icons-material";
+import { styled } from "@mui/material/styles";
+
 const API = process.env.REACT_APP_API;
+
+// Styled components for custom styling
+const ProfileContainer = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(3),
+  maxWidth: "800px",
+  margin: "0 auto",
+  [theme.breakpoints.down("sm")]: {
+    padding: theme.spacing(2),
+  },
+}));
+
+const ProfilePaper = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(3),
+  borderRadius: theme.shape.borderRadius,
+  boxShadow: theme.shadows[3],
+}));
+
+const ProfileCard = styled(Card)(({ theme }) => ({
+  marginBottom: theme.spacing(2),
+  borderRadius: theme.shape.borderRadius,
+  boxShadow: theme.shadows[2],
+}));
+
+const FormBox = styled(Box)(({ theme }) => ({
+  display: "flex",
+  flexDirection: "column",
+  gap: theme.spacing(2),
+  marginTop: theme.spacing(2),
+}));
+
+const StyledButton = styled(Button)(({ theme }) => ({
+  textTransform: "none",
+  borderRadius: theme.shape.borderRadius,
+}));
 
 function Profile({ token }) {
   const userId = jwtDecode(token).userId;
@@ -26,7 +77,7 @@ function Profile({ token }) {
         setUserData({
           username: data.username || "Unknown",
           email: data.email || "",
-          phone : data.phone || "",
+          phone: data.phone || "",
           profile: data.profile || "",
         });
         setNewUsername(data.username || "");
@@ -58,7 +109,7 @@ function Profile({ token }) {
       setUserData((prev) => ({ ...prev, username: newUsername }));
       setSuccess(data.message || "Username updated successfully!");
       setError("");
-      setTimeout(() => setSuccess(""), 3000); // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
       setError(
         "Failed to update username: " +
@@ -81,7 +132,7 @@ function Profile({ token }) {
       setNewPassword("");
       setSuccess(data.message || "Password updated successfully!");
       setError("");
-      setTimeout(() => setSuccess(""), 3000); // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
       setError(
         "Failed to update password: " +
@@ -92,8 +143,7 @@ function Profile({ token }) {
     }
   };
 
-  // profile
-
+  // Profile picture
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -137,76 +187,145 @@ function Profile({ token }) {
   };
 
   return (
-    <div className="profile-content">
-      <h2>Profile</h2>
-      {error && <div className="error-message">{error}</div>}
-      {success && <div className="success-message">{success}</div>}
-      <div className="profile-info">
-        <div>
-          <p>
-            <strong>User ID:</strong> {userId}
-          </p>
-          <p>
-            <strong>Username:</strong> {userData.username}
-          </p>
-          <p>
-            <strong>Email:</strong> {userData.email || "Not provided"}
-          </p>{" "}
-          <p>
-            <strong>Phone:</strong> {userData.phone || "Not provided"}
-          </p>
-        </div>
-        <div className="profile-img ">
-          <img
-            src={
-              userData.profile
-                ? `${API}${userData.profile.startsWith("/") ? "" : "/"}${
-                    userData.profile
-                  }`
-                : ""
-            }
-            alt={userData.username || "User"}
-          />
-          <form onSubmit={updateProfilePicture} className="profile-form">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              required
-            />
-            <button type="submit">Update Profile</button>
-          </form>
-        </div>
-      </div>
-
-      <form onSubmit={updateUsername} className="profile-form">
-        <h3>Update Username</h3>
-        <div className="form-group">
-          <input
-            type="text"
-            value={newUsername}
-            onChange={(e) => setNewUsername(e.target.value)}
-            placeholder="New Username"
-            required
-          />
-        </div>
-        <button type="submit">Update Username</button>
-      </form>
-
-      <form onSubmit={updatePassword} className="profile-form">
-        <h3>Change Password</h3>
-        <div className="form-group">
-          <input
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="New Password"
-            required
-          />
-        </div>
-        <button type="submit">Change Password</button>
-      </form>
-    </div>
+    <ProfileContainer>
+      <Typography variant="h5" gutterBottom sx={{ fontWeight: "bold", mb: 3 }}>
+        Profile
+      </Typography>
+      <ProfilePaper>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+        {success && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            {success}
+          </Alert>
+        )}
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <ProfileCard>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  User Information
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <Typography variant="body1">
+                  <strong>User ID:</strong> {userId}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>Username:</strong> {userData.username}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>Email:</strong> {userData.email || "Not provided"}
+                </Typography>
+                <Typography variant="body1">
+                  <strong>Phone:</strong> {userData.phone || "Not provided"}
+                </Typography>
+              </CardContent>
+            </ProfileCard>
+            <ProfileCard>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Profile Picture
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                  <Avatar
+                    src={
+                      userData.profile
+                        ? `${API}${userData.profile.startsWith("/") ? "" : "/"}${userData.profile}`
+                        : ""
+                    }
+                    alt={userData.username || "User"}
+                    sx={{ width: 120, height: 120 }}
+                  />
+                  <FormBox component="form" onSubmit={updateProfilePicture}>
+                    <TextField
+                      type="file"
+                      inputProps={{ accept: "image/*" }}
+                      onChange={handleFileChange}
+                      size="small"
+                      sx={{ width: "auto" }}
+                    />
+                    <StyledButton
+                      variant="contained"
+                      color="primary"
+                      type="submit"
+                      startIcon={<PhotoCamera />}
+                      disabled={!selectedProfile}
+                    >
+                      Update Profile
+                    </StyledButton>
+                  </FormBox>
+                </Box>
+              </CardContent>
+            </ProfileCard>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <ProfileCard>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Update Username
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <FormBox component="form" onSubmit={updateUsername}>
+                  <TextField
+                    fullWidth
+                    label="New Username"
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    placeholder="Enter new username"
+                    required
+                    size="small"
+                    variant="outlined"
+                  />
+                  <StyledButton
+                    fullWidth
+                    variant="contained"
+                    color="primary"
+                    type="submit"
+                    startIcon={<Save />}
+                  >
+                    Update Username
+                  </StyledButton>
+                </FormBox>
+              </CardContent>
+            </ProfileCard>
+            <ProfileCard>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Change Password
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <FormBox component="form" onSubmit={updatePassword}>
+                  <TextField
+                    fullWidth
+                    label="New Password"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                    required
+                    size="small"
+                    variant="outlined"
+                  />
+                  <StyledButton
+                    fullWidth
+                    variant="contained"
+                    color="primary"
+                    type="submit"
+                    startIcon={<Save />}
+                  >
+                    Change Password
+                  </StyledButton>
+                </FormBox>
+              </CardContent>
+            </ProfileCard>
+          </Grid>
+        </Grid>
+      </ProfilePaper>
+    </ProfileContainer>
   );
 }
 

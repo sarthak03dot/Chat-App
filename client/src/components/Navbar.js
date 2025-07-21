@@ -1,13 +1,85 @@
 import { jwtDecode } from "jwt-decode";
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import axios from "axios";
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  IconButton,
+  Menu,
+  MenuItem,
+  Box,
+  Avatar,
+} from "@mui/material";
+import {
+  Menu as MenuIcon,
+  LightMode,
+  DarkMode,
+  Logout,
+} from "@mui/icons-material";
+import { styled } from "@mui/material/styles";
+
 const API = process.env.REACT_APP_API;
+
+// Styled components for custom styling
+const StyledAppBar = styled(AppBar)(({ theme }) => ({
+  backgroundColor: theme.palette.primary.main,
+  boxShadow: theme.shadows[3],
+}));
+
+const StyledToolbar = styled(Toolbar)(({ theme }) => ({
+  display: "flex",
+  justifyContent: "space-between",
+  padding: theme.spacing(0, 2),
+  [theme.breakpoints.down("sm")]: {
+    padding: theme.spacing(0, 1),
+  },
+}));
+
+const NavBrand = styled(Box)(({ theme }) => ({
+  display: "flex",
+  alignItems: "center",
+  gap: theme.spacing(1),
+  "& a": {
+    textDecoration: "none",
+    color: theme.palette.common.white,
+    display: "flex",
+    alignItems: "center",
+    gap: theme.spacing(1),
+  },
+}));
+
+const NavLinks = styled(Box)(({ theme }) => ({
+  display: "flex",
+  alignItems: "center",
+  gap: theme.spacing(2),
+  [theme.breakpoints.down("md")]: {
+    display: "none",
+  },
+}));
+
+const NavUser = styled(Box)(({ theme }) => ({
+  display: "flex",
+  alignItems: "center",
+  gap: theme.spacing(1),
+  [theme.breakpoints.down("md")]: {
+    display: "none",
+  },
+}));
+
+const MobileMenuButton = styled(IconButton)(({ theme }) => ({
+  display: "none",
+  [theme.breakpoints.down("md")]: {
+    display: "block",
+  },
+}));
 
 function Navbar({ token, setToken }) {
   const navigate = useNavigate();
   const [username, setUsername] = useState("User");
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(null);
   const [isDark, setIsDark] = useState(
     () => localStorage.getItem("theme") === "dark"
   );
@@ -46,6 +118,7 @@ function Navbar({ token, setToken }) {
       localStorage.setItem("theme", "light");
     }
   }, [isDark]);
+
   const toggleTheme = () => {
     setIsDark((prev) => !prev);
   };
@@ -54,106 +127,163 @@ function Navbar({ token, setToken }) {
     localStorage.removeItem("token");
     setToken(null);
     navigate("/login");
+    setMenuOpen(null);
   };
 
-  const toggleMenu = () => {
-    setMenuOpen((prev) => !prev);
+  const handleMenuOpen = (event) => {
+    setMenuOpen(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setMenuOpen(null);
   };
 
   return (
-    <div className="navbar">
-      <div className="nav-brand">
-        <Link to={"/"}>
-          <h1>Let's Chat</h1>
-          <i className="bx bxs-message-alt"></i>
-        </Link>
-      </div>
-      <div className="nav-user">
-        {token ? (
-          <h3>
-            Welcome, <span>{username}</span>
-          </h3>
-        ) : null}
-      </div>
+    <StyledAppBar position="static">
+      <StyledToolbar>
+        <NavBrand>
+          <RouterLink to="/">
+            <Typography variant="h6" sx={{ fontWeight: "bold" }}>
+              Let's Chat
+            </Typography>
+            <Avatar sx={{ bgcolor: "transparent", fontSize: "1.5rem" }}>
+              💬
+            </Avatar>
+          </RouterLink>
+        </NavBrand>
 
-      <div className="hamburger" onClick={toggleMenu}>
-        &#9776;
-      </div>
+        {token && (
+          <NavUser>
+            <Typography variant="body1">
+              Welcome, <b>{username}</b>
+            </Typography>
+          </NavUser>
+        )}
 
-      <ul className={`nav-links ${menuOpen ? "active" : ""}`}>
-        {token ? (
-          <>
-            <li>
-              <Link to="/" onClick={() => setMenuOpen(false)}>
+        <NavLinks>
+          {token ? (
+            <>
+              <Button color="inherit" component={RouterLink} to="/">
                 Dashboard
-              </Link>
-            </li>
-            <li>
-              <Link
+              </Button>
+              <Button
+                color="inherit"
+                component={RouterLink}
                 to={`/chat/private/${userId}`}
-                onClick={() => setMenuOpen(false)}
               >
                 Chats
-              </Link>
-            </li>
-            <li>
-              <Link to="/groups" onClick={() => setMenuOpen(false)}>
+              </Button>
+              <Button color="inherit" component={RouterLink} to="/groups">
                 Groups
-              </Link>
-            </li>
-            <li>
-              <Link to="/profile" onClick={() => setMenuOpen(false)}>
+              </Button>
+              <Button color="inherit" component={RouterLink} to="/profile">
                 Profile
-              </Link>
-            </li>
-            <li>
-              <Link>
-                <i
-                  id="theme"
-                  className={`bx ${isDark ? "bx-sun" : "bx-moon"} theme-toggle`}
-                  onClick={toggleTheme}
-                  title="Toggle Dark Theme"
-                ></i>
-              </Link>
-            </li>
-            <button onClick={handleLogout} className="logout-btn-li">
-              Logout
-            </button>
-          </>
-        ) : (
-          <>
-            <li>
-              <Link to="/login" onClick={() => setMenuOpen(false)}>
+              </Button>
+              <IconButton
+                color="inherit"
+                onClick={toggleTheme}
+                title="Toggle Theme"
+              >
+                {isDark ? <LightMode /> : <DarkMode />}
+              </IconButton>
+              <Button
+                color="inherit"
+                onClick={handleLogout}
+                startIcon={<Logout />}
+              >
+                Logout
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button color="inherit" component={RouterLink} to="/login">
                 Login
-              </Link>
-            </li>
-            <li>
-              <Link to="/register" onClick={() => setMenuOpen(false)}>
+              </Button>
+              <Button color="inherit" component={RouterLink} to="/register">
                 Register
-              </Link>
-            </li>
-            <li>
-              <Link>
-                <i
-                  id="theme"
-                  className={`bx ${isDark ? "bx-sun" : "bx-moon"} theme-toggle`}
-                  onClick={toggleTheme}
-                  title="Toggle Dark Theme"
-                ></i>
-              </Link>
-            </li>
-          </>
-        )}
-      </ul>
+              </Button>
+              <IconButton
+                color="inherit"
+                onClick={toggleTheme}
+                title="Toggle Theme"
+              >
+                {isDark ? <LightMode /> : <DarkMode />}
+              </IconButton>
+            </>
+          )}
+        </NavLinks>
 
-      <div className="nav-user">
-        {token ? (
-          <button onClick={handleLogout} className="logout-btn">
-            Logout
-          </button>
-        ) : null}
-      </div>
-    </div>
+        <MobileMenuButton
+          color="inherit"
+          onClick={handleMenuOpen}
+          aria-label="menu"
+        >
+          <MenuIcon />
+        </MobileMenuButton>
+
+        <Menu
+          anchorEl={menuOpen}
+          open={Boolean(menuOpen)}
+          onClose={handleMenuClose}
+          PaperProps={{
+            sx: { minWidth: 200 },
+          }}
+        >
+          {token ? (
+            <>
+              <MenuItem onClick={handleMenuClose} component={RouterLink} to="/">
+                Dashboard
+              </MenuItem>
+              <MenuItem
+                onClick={handleMenuClose}
+                component={RouterLink}
+                to={`/chat/private/${userId}`}
+              >
+                Chats
+              </MenuItem>
+              <MenuItem
+                onClick={handleMenuClose}
+                component={RouterLink}
+                to="/groups"
+              >
+                Groups
+              </MenuItem>
+              <MenuItem
+                onClick={handleMenuClose}
+                component={RouterLink}
+                to="/profile"
+              >
+                Profile
+              </MenuItem>
+              <MenuItem onClick={toggleTheme}>
+                {isDark ? "Light Theme" : "Dark Theme"}
+              </MenuItem>
+              <MenuItem onClick={handleLogout}>Logout</MenuItem>
+            </>
+          ) : (
+            <>
+              <MenuItem
+                onClick={handleMenuClose}
+                component={RouterLink}
+                to="/login"
+              >
+                Login
+              </MenuItem>
+              <MenuItem
+                onClick={handleMenuClose}
+                component={RouterLink}
+                to="/register"
+              >
+                Register
+              </MenuItem>
+              <MenuItem onClick={toggleTheme}>
+                {isDark ? "Light Theme" : "Dark Theme"}
+              </MenuItem>
+            </>
+          )}
+        </Menu>
+      </StyledToolbar>
+    </StyledAppBar>
   );
 }
 

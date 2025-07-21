@@ -1,7 +1,51 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link as RouterLink } from "react-router-dom";
+import {
+  Box,
+  Typography,
+  Paper,
+  TextField,
+  Button,
+  Alert,
+  Link,
+} from "@mui/material";
+import { styled } from "@mui/material/styles";
+import { Login as LoginIcon } from "@mui/icons-material";
+
 const API = process.env.REACT_APP_API;
+
+// Styled components for custom styling
+const LoginContainer = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(3),
+  maxWidth: "400px",
+  margin: "0 auto",
+  minHeight: "100vh",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  [theme.breakpoints.down("sm")]: {
+    padding: theme.spacing(2),
+  },
+}));
+
+const LoginPaper = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(3),
+  borderRadius: theme.shape.borderRadius,
+  boxShadow: theme.shadows[3],
+  width: "100%",
+}));
+
+const FormBox = styled(Box)(({ theme }) => ({
+  display: "flex",
+  flexDirection: "column",
+  gap: theme.spacing(2),
+}));
+
+const StyledButton = styled(Button)(({ theme }) => ({
+  textTransform: "none",
+  borderRadius: theme.shape.borderRadius,
+}));
 
 function Login({ setToken }) {
   const [username, setUsername] = useState("");
@@ -29,34 +73,56 @@ function Login({ setToken }) {
   };
 
   return (
-    <div className="auth-content">
-      <h2>Login</h2>
-      {error && <div className="error-message">{error}</div>}
-      <form onSubmit={handleSubmit} className="auth-form">
-        <div className="form-group">
-          <input
-            type="text"
+    <LoginContainer>
+      <LoginPaper>
+        <Typography variant="h5" gutterBottom sx={{ fontWeight: "bold", textAlign: "center" }}>
+          Login
+        </Typography>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+        <FormBox component="form" onSubmit={handleSubmit}>
+          <TextField
+            fullWidth
+            label="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="Username"
+            placeholder="Enter username"
             required
+            size="small"
+            variant="outlined"
           />
-        </div>
-        <div className="form-group">
-          <input
+          <TextField
+            fullWidth
+            label="Password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
+            placeholder="Enter password"
             required
+            size="small"
+            variant="outlined"
           />
-        </div>
-        <button type="submit">Login</button>
-      </form>
-      <p className="auth-link">
-        Don't have an account? <Link to="/register">Register here</Link>
-      </p>
-    </div>
+          <StyledButton
+            fullWidth
+            variant="contained"
+            color="primary"
+            type="submit"
+            startIcon={<LoginIcon />}
+          >
+            Login
+          </StyledButton>
+        </FormBox>
+        <Typography variant="body2" sx={{ mt: 2, textAlign: "center" }}>
+          Don't have an account?{" "}
+          <Link component={RouterLink} to="/register" color="primary">
+            Register here
+          </Link>
+        </Typography>
+      </LoginPaper>
+    </LoginContainer>
   );
 }
 
