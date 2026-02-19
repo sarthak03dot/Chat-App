@@ -31,9 +31,12 @@ router.put("/:userId", auth, async (req, res) => {
     const user = await User.findById(userId);
     if (username) user.username = username;
     if (password) user.password = await bcrypt.hash(password, 10);
-    await user.save();
-    res.json({ message: "user updated Successfully." });
+    const updatedUser = await user.save();
+    const userResponse = updatedUser.toObject();
+    delete userResponse.password;
+    res.json({ message: "User updated successfully.", user: userResponse });
   } catch (errr) {
+    console.error("Update user error:", errr);
     res.status(400).json({ message: errr.message });
   }
 });

@@ -89,10 +89,12 @@ router.post("/register", async (req, res) => {
     });
     await user.save();
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
-    return res.status(201).json({
+    const token = jwt.sign(
+      { userId: user._id.toString(), username: user.username }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: "24h" }
+    );
+    res.status(201).json({
       token,
       user: {
         id: user._id,
@@ -123,10 +125,12 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
-    return res.status(200).json({ token });
+    const token = jwt.sign(
+      { userId: user._id.toString(), username: user.username }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: "24h" }
+    );
+    res.status(200).json({ token });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ message: "Server error" });

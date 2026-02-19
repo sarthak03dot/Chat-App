@@ -1,743 +1,410 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import io from "socket.io-client";
 import { jwtDecode } from "jwt-decode";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Typography,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemAvatar,
   Avatar,
+  IconButton,
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   Button,
   TextField,
-  Paper,
+  Skeleton,
+  Badge,
   Grid,
-  Alert,
-  IconButton,
-  Divider,
-  Chip,
-  FormControl,
-  Fade,
-  CircularProgress, // Added for loading states
 } from "@mui/material";
-import {
-  GroupAdd,
-  Delete,
-  PersonAdd,
-  Chat,
-  Notifications as NotificationsIcon,
-  Wifi, // More indicative of online status
-} from "@mui/icons-material";
-import { styled } from "@mui/material/styles";
+import { 
+  Plus, 
+  Search, 
+  Activity, 
+  MessageSquare, 
+  Users, 
+  ChevronRight,
+  TrendingUp,
+  Clock,
+  Sparkles
+} from "lucide-react";
+import { styled, alpha } from "@mui/material/styles";
+import { motion, AnimatePresence } from "framer-motion";
+import { useUI } from "../context/UIProvider";
 
-const API = process.env.REACT_APP_API || "http://localhost:5000"; 
+const API = process.env.REACT_APP_API || "http://localhost:5000";
 
-const socket = io(`${API}`, {
-  transports: ["websocket", "polling"],
-  reconnectionAttempts: 5, 
-  reconnectionDelay: 1000, 
-});
+// Persistent socket instance for the component's lifecycle
+const socket = io(API, { autoConnect: false, transports: ['websocket', 'polling'] });
 
-const DashboardContainer = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(4),
-  maxWidth: "1400px",
-  margin: "0 auto",
-  minHeight: "calc(100vh - 64px)", 
-  [theme.breakpoints.down("md")]: {
-    padding: theme.spacing(3),
-  },
-  [theme.breakpoints.down("sm")]: {
-    padding: theme.spacing(2),
-  },
-}));
-
-const SectionPaper = styled(Paper)(({ theme }) => ({
+const DashboardLayout = styled(Box)(({ theme }) => ({
+  height: 'calc(100vh - 64px)',
+  display: 'flex',
+  gap: theme.spacing(3),
   padding: theme.spacing(3),
-  marginBottom: theme.spacing(3),
-  borderRadius: theme.shape.borderRadius * 2,
-  boxShadow: theme.shadows[4],
-  backgroundColor: theme.palette.background.paper,
-  transition: "transform 0.2s ease-in-out",
-  "&:hover": {
-    transform: "translateY(-4px)",
-  },
-  [theme.breakpoints.down("sm")]: {
-    padding: theme.spacing(2),
+  overflow: 'hidden',
+  [theme.breakpoints.down('md')]: {
+    flexDirection: 'column',
+    height: 'auto',
+    overflow: 'visible'
+  }
+}));
+
+const CardPanel = styled(motion.div)(({ theme }) => ({
+  background: alpha(theme.palette.background.paper, 0.45),
+  backdropFilter: 'blur(16px)',
+  borderRadius: '24px',
+  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+  display: 'flex',
+  flexDirection: 'column',
+  overflow: 'hidden',
+  boxShadow: `0 8px 32px -4px ${alpha(theme.palette.common.black, 0.05)}`,
+}));
+
+const Sidebar = styled(CardPanel)(({ theme }) => ({
+  width: '340px',
+  flexShrink: 0,
+  [theme.breakpoints.down('md')]: {
+    width: '100%',
+    height: '400px'
+  }
+}));
+
+const MainArena = styled(CardPanel)(({ theme }) => ({
+  flex: 1,
+  overflow: 'auto'
+}));
+
+const SearchField = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(2, 3),
+  display: 'flex',
+  alignItems: 'center',
+  background: alpha(theme.palette.background.default, 0.4),
+  borderRadius: '16px',
+  margin: theme.spacing(2, 3),
+  border: `1px solid ${alpha(theme.palette.divider, 0.05)}`,
+  '&:focus-within': {
+    border: `1px solid ${theme.palette.primary.main}`,
+    boxShadow: `0 0 0 4px ${alpha(theme.palette.primary.main, 0.1)}`,
   },
 }));
 
-const GroupItem = styled(ListItem)(({ theme }) => ({
-  display: "flex",
-  alignItems: "center",
-  padding: theme.spacing(2),
-  borderRadius: theme.shape.borderRadius,
-  marginBottom: theme.spacing(1),
-  backgroundColor: theme.palette.background.default,
-  "&:hover": {
-    backgroundColor: theme.palette.action.hover,
-    transform: "scale(1.01)",
-    transition: "background-color 0.2s, transform 0.2s",
-  },
-  [theme.breakpoints.down("sm")]: {
-    flexDirection: "column",
-    alignItems: "flex-start",
-    gap: theme.spacing(1),
+const ChatNavItem = styled(motion.div)(({ theme, $active }) => ({
+  padding: theme.spacing(2, 3),
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing(2),
+  cursor: 'pointer',
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  borderLeft: `4px solid ${$active ? theme.palette.primary.main : 'transparent'}`,
+  background: $active ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
+  '&:hover': {
+    background: alpha(theme.palette.text.primary, 0.03),
   },
 }));
 
-const StyledButton = styled(Button)(({ theme }) => ({
-  textTransform: "none",
-  borderRadius: theme.shape.borderRadius,
-  padding: theme.spacing(1, 2),
-  fontWeight: 500,
-  [theme.breakpoints.down("sm")]: {
-    width: "100%",
-  },
-}));
-
-const StyledTextField = styled(TextField)(({ theme }) => ({
-  "& .MuiInputBase-root": {
-    borderRadius: theme.shape.borderRadius,
-  },
-  [theme.breakpoints.down("sm")]: {
-    width: "100%",
-  },
-}));
-
-const SectionHeader = styled(Typography)(({ theme }) => ({
-  display: "flex",
-  alignItems: "center",
-  fontWeight: "bold",
-  color: theme.palette.text.primary,
-  marginBottom: theme.spacing(2),
-  "& svg": {
-    marginRight: theme.spacing(1),
-  },
-}));
-
-function Dashboard({ token, setToken }) {
+function Dashboard({ token }) {
   const navigate = useNavigate();
-  // Decode userId safely
-  const userId = token ? jwtDecode(token).userId : null;
-
-  const [onlineUsers, setOnlineUsers] = useState({});
-  const [recentChats, setRecentChats] = useState([]);
-  const [groups, setGroups] = useState([]);
-  const [notifications, setNotifications] = useState([]);
+  const { showToast } = useUI();
+  const [conversations, setConversations] = useState([]);
+  const [recentMsgs, setRecentMsgs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [openDialog, setOpenDialog] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
-  const [users, setUsers] = useState([]);
-  const [newMemberId, setNewMemberId] = useState("");
-  const [message, setMessage] = useState({ text: "", type: "" });
-  const [isLoading, setIsLoading] = useState(false);
-  const [isGroupLoading, setIsGroupLoading] = useState(false);
-  const [isAddMemberLoading, setIsAddMemberLoading] = useState(false);
-
-  const showMessage = useCallback((text, type) => {
-    setMessage({ text, type });
-    const timer = setTimeout(() => setMessage({ text: "", type: "" }), 5000);
-    return () => clearTimeout(timer);
-  }, []);
+  const currentUserId = token ? jwtDecode(token).userId : null;
 
   useEffect(() => {
-    if (!token || !userId) {
-      navigate("/login");
-      return;
-    }
-
-    socket.emit("join", { userId });
-
-    socket.on("userStatus", ({ userId: statusUserId, online }) => {
-      setOnlineUsers((prev) => ({ ...prev, [statusUserId]: online }));
-      setUsers((prevUsers) =>
-        prevUsers.map((user) =>
-          user._id === statusUserId ? { ...user, online } : user
-        )
-      );
-    });
-
-    socket.on("receiveMessage", (msg) => {
-      const senderName = msg.sender?.username || "Unknown User";
-      const notificationText = `New message from ${senderName}: ${
-        msg.content || "File"
-      }`;
-      setNotifications((prev) => [...prev, notificationText]);
-
-      if (msg.recipient) {
-        setRecentChats((prev) => {
-          const updatedChats = prev.filter(
-            (chat) => chat.userId !== msg.sender._id
-          );
-          return [
-            {
-              userId: msg.sender._id,
-              username: msg.sender.username,
-              lastMessage: msg.content,
-              isGroup: false,
-            },
-            ...updatedChats,
-          ];
-        });
-      } else if (msg.group) {
-        setRecentChats((prev) => {
-          const updatedChats = prev.filter(
-            (chat) => chat.groupId !== msg.group
-          );
-          const groupName =
-            groups.find((g) => g._id === msg.group)?.name ||
-            `Group ${msg.group}`;
-          return [
-            {
-              groupId: msg.group,
-              name: groupName,
-              lastMessage: `${senderName}: ${msg.content}`,
-              isGroup: true,
-            },
-            ...updatedChats,
-          ];
-        });
-      }
-
-      if (Notification.permission === "granted") {
-        new Notification(`New message from ${senderName}`, {
-          body: msg.content || "File received",
-          icon: "/chat-icon.png",
-        });
-      }
-    });
-
-    if (Notification.permission !== "granted") {
-      Notification.requestPermission();
-    }
-
-    const fetchInitialData = async () => {
+    const fetchData = async () => {
       try {
-        const { data: userData } = await axios.get(`${API}/api/users`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const usersStatus = {};
-        userData.forEach((user) => {
-          usersStatus[user._id] = user.online;
-        });
-        setOnlineUsers(usersStatus);
-        setUsers(userData);
-
-        const { data: privateChatsData } = await axios.get(
-          `${API}/api/chat/recent`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        const formattedPrivateChats = privateChatsData.map((chat) => ({
-          ...chat,
-          isGroup: false,
-        }));
-        setRecentChats(formattedPrivateChats);
-
-        // Fetch Groups
-        const { data: groupsData } = await axios.get(`${API}/api/groups/all`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setGroups(groupsData);
+        const [cRes, mRes] = await Promise.all([
+          axios.get(`${API}/api/chat/conversations`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`${API}/api/chat/activity`, { headers: { Authorization: `Bearer ${token}` } })
+        ]);
+        setConversations(cRes.data);
+        setRecentMsgs(mRes.data || []);
       } catch (err) {
-        console.error("Failed to fetch initial data:", err);
-        showMessage("Failed to load dashboard data.", "error");
-        if (err.response?.status === 401 || err.response?.status === 403) {
-          setToken(null);
-          navigate("/login");
-        }
+        // Silent fail or show toast if critical
+        console.error(err);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
-    fetchInitialData();
+    if (token) {
+      fetchData();
+      socket.connect();
+      socket.emit('join', { userId: currentUserId });
 
-    return () => {
-      socket.off("userStatus");
-      socket.off("receiveMessage");
-      socket.disconnect();
-    };
-  }, [token, userId, navigate, showMessage, groups, setToken]);
-
-  const getUserNameById = useCallback(
-    (id) => {
-      const user = users.find((u) => u._id === id);
-      return user ? user.username : "User";
-    },
-    [users]
-  );
-
-  const startPrivateChat = (recipientId) => {
-    if (userId === recipientId) {
-      showMessage("You cannot chat with yourself.", "info");
-      return;
-    }
-    navigate(`/chat/private/${recipientId}`);
-  };
-
-  const joinGroupChat = (groupId) => {
-    navigate(`/chat/group/${groupId}`);
-  };
-
-  const createGroup = async (e) => {
-    e.preventDefault();
-    if (!newGroupName.trim()) {
-      showMessage("Group name cannot be empty.", "warning");
-      return;
-    }
-
-    setIsGroupLoading(true);
-    try {
-      const { data } = await axios.post(
-        `${API}/api/groups`,
-        { name: newGroupName.trim() },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setGroups((prev) => [...prev, data]);
-      showMessage(`Group "${data.name}" created successfully`, "success");
-      setNewGroupName("");
-    } catch (err) {
-      console.error("Create group error:", err);
-      const errorMessage =
-        err.response?.data?.message || "Failed to create group.";
-      showMessage(errorMessage, "error");
-    } finally {
-      setIsGroupLoading(false);
-    }
-  };
-
-  const deleteGroup = async (groupId, name) => {
-    if (
-      !window.confirm(
-        `Are you sure you want to delete group "${name}"? This action cannot be undone.`
-      )
-    ) {
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await axios.delete(`${API}/api/groups/${groupId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      socket.on('userStatus', ({ userId: statusUserId, online }) => {
+        setConversations(prev => prev.map(c => 
+          (c.type === 'private' && c._id === statusUserId) ? { ...c, online } : c
+        ));
       });
 
-      if (response.data?.message.includes("successfully")) {
-        showMessage(`Group "${name}" deleted successfully`, "success");
-        setGroups((prev) => prev.filter((group) => group._id !== groupId));
-        setRecentChats((prev) =>
-          prev.filter((chat) => !(chat.groupId && chat.groupId === groupId))
-        );
-      } else {
-        showMessage(
-          response.data.message || "Failed to delete group. Please try again.",
-          "error"
-        );
-      }
-    } catch (err) {
-      console.error("Delete group error:", err);
-      const errorMessage =
-        err.response?.data?.message ||
-        "An unexpected error occurred while deleting the group.";
-      showMessage(errorMessage, "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      socket.on('receiveMessage', () => {
+        fetchData();
+      });
 
-  const addMember = async (groupId) => {
-    if (!newMemberId.trim()) {
-      showMessage("Please enter a member ID.", "warning");
-      return;
+      return () => {
+        socket.off('userStatus');
+        socket.off('receiveMessage');
+        socket.disconnect();
+      };
     }
-    if (userId === newMemberId) {
-      showMessage("You are already a member of this group.", "info");
-      return;
-    }
-    if (!users.some((u) => u._id === newMemberId.trim())) {
-      showMessage("User with this ID does not exist.", "warning");
-      return;
-    }
+  }, [token, currentUserId]);
 
-    setIsAddMemberLoading(true);
+  const stats = useMemo(() => {
+    const unreadTotal = conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
+    return [
+      { label: 'Unread Glows', value: unreadTotal, icon: MessageSquare, color: '#6366f1' },
+      { label: 'Active Orbits', value: conversations.filter(c => c.type === 'private' && c.online).length, icon: Activity, color: '#10b981' },
+      { label: 'Frequencies', value: conversations.filter(c => c.type === 'group').length, icon: TrendingUp, color: '#ec4899' }
+    ];
+  }, [conversations]);
+
+  const filteredConversations = useMemo(() => 
+    conversations.filter(c => c.display.toLowerCase().includes(search.toLowerCase())),
+    [conversations, search]
+  );
+
+  const handleCreateGroup = async () => {
     try {
-      const response = await axios.put(
-        `${API}/api/groups/${groupId}/members`,
-        { memberId: newMemberId.trim() },
+      if (!newGroupName.trim()) return;
+      const { data } = await axios.post(`${API}/api/groups`, 
+        { name: newGroupName }, 
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      showMessage(
-        response.data.message || "Member added successfully!",
-        "success"
-      );
-      setGroups((prev) =>
-        prev.map((group) =>
-          group._id === groupId
-            ? { ...group, members: response.data.group.members }
-            : group
-        )
-      );
-      setNewMemberId("");
+      setOpenDialog(false);
+      setNewGroupName("");
+      navigate(`/chat/group/${data._id}`);
+      showToast("Orbit successfully initialized", "success");
     } catch (err) {
-      console.error("Add member error:", err);
-      const errorMessage =
-        err.response?.data?.message || "Failed to add member.";
-      showMessage(errorMessage, "error");
-    } finally {
-      setIsAddMemberLoading(false);
+        showToast("Failed to initialize orbit", "error");
     }
   };
 
-  if (!userId) {
-    return (
-      <DashboardContainer
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "calc(100vh - 64px)",
-        }}
-      >
-        <CircularProgress />
-        <Typography variant="h6" sx={{ ml: 2 }}>
-          Loading user data...
-        </Typography>
-      </DashboardContainer>
-    );
-  }
-
   return (
-    <DashboardContainer>
-      <Fade in timeout={500}>
-        <Typography
-          variant="h4"
-          gutterBottom
-          sx={{ fontWeight: "bold", mb: 4, color: "text.primary" }}
-        >
-          Your Chat Dashboard
-        </Typography>
-      </Fade>
-
-      {message.text && (
-        <Fade in timeout={500}>
-          <Alert severity={message.type} sx={{ mb: 3, borderRadius: 2 }}>
-            {message.text}
-          </Alert>
-        </Fade>
-      )}
-
-      {isLoading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", my: 4 }}>
-          <CircularProgress />
-          <Typography variant="h6" sx={{ ml: 2 }}>
-            Loading dashboard data...
-          </Typography>
+    <DashboardLayout>
+      <Sidebar initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }}>
+        <Box sx={{ p: 3, pb: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h5" fontWeight={900} sx={{ color: 'primary.main', letterSpacing: '-1px' }}>Orbit Hub</Typography>
+          <Tooltip title="Create Frequency">
+            <IconButton onClick={() => setOpenDialog(true)} sx={{ bgcolor: 'primary.main', color: 'white', '&:hover': { bgcolor: 'primary.dark' }, boxShadow: '0 4px 12px rgba(99, 102, 241, 0.4)' }}>
+              <Plus size={20} />
+            </IconButton>
+          </Tooltip>
         </Box>
-      ) : (
-        <Grid container spacing={3}>
-          {/* Notifications Section */}
-          <Grid item xs={12} sm={6} md={4}>
-            <Fade in timeout={600}>
-              <SectionPaper>
-                <SectionHeader variant="h6">
-                  <NotificationsIcon />
-                  Notifications
-                </SectionHeader>
-                <Divider sx={{ mb: 2 }} />
-                {notifications.length === 0 ? (
-                  <Typography color="text.secondary" sx={{ p: 1 }}>
-                    No new notifications
-                  </Typography>
-                ) : (
-                  <List dense>
-                    {" "}
-                    {notifications.map((note, idx) => (
-                      <ListItem key={idx} sx={{ py: 1 }}>
-                        <ListItemText primary={note} />
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
-              </SectionPaper>
-            </Fade>
-          </Grid>
 
-          {/* Online Users Section */}
-          <Grid item xs={12} sm={6} md={4}>
-            <Fade in timeout={700}>
-              <SectionPaper>
-                <SectionHeader variant="h6">
-                  <Wifi />
-                  Online Users
-                </SectionHeader>
-                <Divider sx={{ mb: 2 }} />
-                <List>
-                  {Object.entries(onlineUsers).length === 0 ? (
-                    <Typography color="text.secondary" sx={{ p: 1 }}>
-                      No users currently online.
-                    </Typography>
-                  ) : (
-                    users
-                      .filter((user) => onlineUsers[user._id]) // Only show truly online users
-                      .map((user) => (
-                        <ListItem
-                          key={user._id}
-                          button
-                          onClick={() => startPrivateChat(user._id)}
-                          disabled={user._id === userId} // Disable chat with self
-                          sx={{
-                            borderRadius: 1,
-                            mb: 0.5,
-                            "&:hover": {
-                              bgcolor: "action.hover",
-                            },
-                          }}
-                        >
-                          <ListItemAvatar>
-                            <Avatar
-                              sx={{
-                                bgcolor: onlineUsers[user._id]
-                                  ? "success.main"
-                                  : "error.main", // Redundant if filtered, but good for safety
-                                width: 36,
-                                height: 36,
-                              }}
-                            >
-                              {getUserNameById(user._id)[0].toUpperCase()}
-                            </Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={
-                              user._id === userId
-                                ? `${user.username} (You)`
-                                : user.username
-                            }
-                            secondary={
-                              onlineUsers[user._id] ? "Online" : "Offline"
-                            }
-                            primaryTypographyProps={{ fontWeight: 500 }}
-                          />
-                          <Chip
-                            label={onlineUsers[user._id] ? "Online" : "Offline"}
-                            color={onlineUsers[user._id] ? "success" : "error"}
-                            size="small"
-                            sx={{ ml: 2, fontSize: "0.75rem" }}
-                          />
-                        </ListItem>
-                      ))
-                  )}
-                </List>
-              </SectionPaper>
-            </Fade>
-          </Grid>
+        <SearchField>
+          <Search size={18} color={alpha('#000', 0.4)} />
+          <TextField 
+            fullWidth 
+            variant="standard" 
+            placeholder="Search communications..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            InputProps={{ disableUnderline: true, sx: { px: 1.5, fontSize: '0.9rem' } }}
+          />
+        </SearchField>
 
-          {/* Recent Chats Section */}
-          <Grid item xs={12} sm={6} md={4}>
-            <Fade in timeout={800}>
-              <SectionPaper>
-                <SectionHeader variant="h6">
-                  <Chat />
-                  Recent Chats
-                </SectionHeader>
-                <Divider sx={{ mb: 2 }} />
-                <List>
-                  {recentChats.length === 0 ? (
-                    <Typography color="text.secondary" sx={{ p: 1 }}>
-                      No recent chats yet. Start a conversation!
-                    </Typography>
-                  ) : (
-                    recentChats.map((chat, idx) => (
-                      <ListItem
-                        key={idx}
-                        button
-                        onClick={() =>
-                          chat.isGroup
-                            ? joinGroupChat(chat.groupId)
-                            : startPrivateChat(chat.userId)
-                        }
-                        sx={{
-                          borderRadius: 1,
-                          mb: 0.5,
-                          "&:hover": {
-                            bgcolor: "action.hover",
-                          },
+        <Box sx={{ flex: 1, overflowY: 'auto', px: 1 }}>
+          <Typography variant="overline" sx={{ px: 2, mt: 2, display: 'block', opacity: 0.6, fontWeight: 800 }}>Vessel Streams</Typography>
+          <AnimatePresence>
+            {loading ? (
+              [1, 2, 3, 4, 5].map(i => (
+                <Box key={i} sx={{ p: 2, display: 'flex', gap: 2 }}>
+                  <Skeleton variant="circular" width={44} height={44} />
+                  <Box sx={{ flex: 1 }}>
+                    <Skeleton variant="text" width="60%" />
+                    <Skeleton variant="text" width="40%" />
+                  </Box>
+                </Box>
+              ))
+            ) : (
+              filteredConversations.map((conv) => (
+                <ChatNavItem 
+                  key={conv._id} 
+                  onClick={() => navigate(conv.type === 'group' ? `/chat/group/${conv._id}` : `/chat/${conv._id}`)}
+                  whileHover={{ x: 5, background: alpha('#6366f1', 0.05) }}
+                  $active={false}
+                >
+                  <Box sx={{ position: 'relative' }}>
+                    <Badge
+                      overlap="circular"
+                      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                      variant="dot"
+                      invisible={conv.type !== 'private' || !conv.online}
+                      sx={{ '& .MuiBadge-badge': { backgroundColor: '#10b981', color: '#10b981', boxShadow: '0 0 0 2px white' } }}
+                    >
+                      <Avatar 
+                        src={conv.profile && `${API}/${conv.profile}`} 
+                        sx={{ 
+                          width: 44, 
+                          height: 44, 
+                          background: conv.type === 'group' ? 'linear-gradient(135deg, #6366f1 0%, #ec4899 100%)' : 'primary.main',
+                          border: '2px solid white', 
+                          boxShadow: '0 4px 10px rgba(0,0,0,0.1)' 
                         }}
                       >
-                        <ListItemAvatar>
-                          <Avatar
-                            sx={{
-                              bgcolor: chat.isGroup
-                                ? "secondary.main"
-                                : "primary.main",
-                              width: 36,
-                              height: 36,
-                            }}
-                          >
-                            {chat.isGroup
-                              ? chat.name[0]?.toUpperCase() || "G"
-                              : getUserNameById(
-                                  chat.userId
-                                )[0]?.toUpperCase() || "U"}
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={
-                            chat.isGroup
-                              ? chat.name
-                              : getUserNameById(chat.userId)
-                          }
-                          secondary={chat.lastMessage || "No messages yet"}
-                          primaryTypographyProps={{ fontWeight: 500 }}
-                          secondaryTypographyProps={{
-                            noWrap: true,
-                            textOverflow: "ellipsis",
-                          }}
-                        />
-                      </ListItem>
-                    ))
-                  )}
-                </List>
-              </SectionPaper>
-            </Fade>
-          </Grid>
-
-          {/* Groups Section */}
-          <Grid item xs={12}>
-            <Fade in timeout={900}>
-              <SectionPaper>
-                <SectionHeader variant="h6">
-                  <GroupAdd />
-                  Groups
-                </SectionHeader>
-                <Divider sx={{ mb: 2 }} />
-                <Box
-                  component="form"
-                  onSubmit={createGroup}
-                  sx={{
-                    mb: 3,
-                    display: "flex",
-                    gap: 1,
-                    flexDirection: { xs: "column", sm: "row" },
-                  }}
-                >
-                  <StyledTextField
-                    fullWidth
-                    label="New group name"
-                    value={newGroupName}
-                    onChange={(e) => setNewGroupName(e.target.value)}
-                    required
-                    size="small"
-                    variant="outlined"
-                    disabled={isGroupLoading} // Disable input while loading
-                  />
-                  <StyledButton
-                    variant="contained"
-                    color="primary"
-                    type="submit"
-                    startIcon={
-                      isGroupLoading ? (
-                        <CircularProgress size={20} color="inherit" />
+                        {conv.type === 'group' ? <Users size={20} /> : conv.display[0]}
+                      </Avatar>
+                    </Badge>
+                  </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                       <Typography variant="subtitle2" fontWeight={800} noWrap>{conv.display}</Typography>
+                       {conv.lastMessage && (
+                         <Typography variant="caption" sx={{ opacity: 0.5, fontSize: '0.65rem' }}>
+                           {new Date(conv.lastMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                         </Typography>
+                       )}
+                    </Box>
+                    <Typography variant="caption" noWrap sx={{ opacity: 0.6, display: 'block' }}>
+                      {conv.lastMessage ? (
+                        `${conv.lastMessage.isMine ? 'You: ' : ''}${conv.lastMessage.content}`
                       ) : (
-                        <GroupAdd />
-                      )
-                    }
-                    disabled={isGroupLoading || !newGroupName.trim()}
-                    sx={{ minWidth: { xs: "100%", sm: "150px" } }}
-                  >
-                    {isGroupLoading ? "Creating..." : "Create Group"}
-                  </StyledButton>
+                        conv.type === 'group' ? `${conv.membersCount} members` : 'Start transmission'
+                      )}
+                    </Typography>
+                  </Box>
+                  {conv.unreadCount > 0 && (
+                    <Box sx={{ minWidth: 18, height: 18, bgcolor: 'primary.main', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.65rem', fontWeight: 900 }}>
+                      {conv.unreadCount}
+                    </Box>
+                  )}
+                </ChatNavItem>
+              ))
+            )}
+          </AnimatePresence>
+        </Box>
+      </Sidebar>
+
+      <MainArena initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}>
+        <Box sx={{ p: { xs: 2, md: 4 } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+            <Box sx={{ p: 1.5, borderRadius: '16px', background: 'linear-gradient(135deg, #6366f1 0%, #ec4899 100%)', color: 'white', boxShadow: '0 8px 20px rgba(99, 102, 241, 0.4)' }}>
+              <Sparkles size={28} />
+            </Box>
+            <Box>
+              <Typography variant="h4" fontWeight={900} sx={{ letterSpacing: '-1.5px', fontSize: { xs: '1.5rem', md: '2.125rem' } }}>Welcome, {token ? jwtDecode(token).username : 'User'}</Typography>
+              <Typography color="text.secondary" fontWeight={500}>The galaxy is currently at {conversations.filter(c=>c.type==='private' && c.online).length} active peer connections.</Typography>
+            </Box>
+          </Box>
+
+          <Grid container spacing={4}>
+            <Grid size={{ xs: 12, lg: 8 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 3 }}>
+                  {stats.map((stat, i) => (
+                    <Box 
+                      key={i} 
+                      component={motion.div} 
+                      whileHover={{ y: -5, boxShadow: `0 10px 30px ${alpha(stat.color, 0.15)}` }} 
+                      sx={{ p: 3, borderRadius: '24px', background: alpha(stat.color, 0.05), border: `1px solid ${alpha(stat.color, 0.1)}`, display: 'flex', flexDirection: 'column', gap: 2 }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                         <stat.icon size={22} color={stat.color} />
+                         <Typography variant="caption" fontWeight={900} color={stat.color} sx={{ textTransform: 'uppercase', letterSpacing: '1px' }}>{stat.label}</Typography>
+                      </Box>
+                      <Typography variant="h3" fontWeight={900}>{stat.value}</Typography>
+                    </Box>
+                  ))}
                 </Box>
-                <List>
-                  {groups.length > 0 ? (
-                    groups.map((group) => (
-                      <GroupItem key={group._id}>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            width: "100%",
-                            flexDirection: { xs: "column", sm: "row" },
-                            gap: { xs: 2, sm: 0 },
-                          }}
-                        >
-                          <ListItemText
-                            primary={group.name}
-                            onClick={() => joinGroupChat(group._id)}
-                            sx={{
-                              cursor: "pointer",
-                              flex: 1,
-                              "& .MuiListItemText-primary": {
-                                fontWeight: 500,
-                                color: "primary.main",
-                                "&:hover": {
-                                  color: "primary.light",
-                                },
-                              },
-                            }}
-                          />
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                              flexDirection: { xs: "column", sm: "row" },
-                              width: { xs: "100%", sm: "auto" },
-                            }}
-                          >
-                            <FormControl
-                              sx={{ minWidth: { xs: "100%", sm: 140 } }}
-                            >
-                              <StyledTextField
-                                size="small"
-                                label="Member ID"
-                                value={newMemberId}
-                                onChange={(e) => setNewMemberId(e.target.value)}
-                                variant="outlined"
-                                disabled={isAddMemberLoading} // Disable input while loading
-                              />
-                            </FormControl>
-                            <StyledButton
-                              variant="outlined"
-                              color="primary"
-                              onClick={() => addMember(group._id)}
-                              startIcon={
-                                isAddMemberLoading ? (
-                                  <CircularProgress size={20} color="inherit" />
-                                ) : (
-                                  <PersonAdd />
-                                )
-                              }
-                              disabled={
-                                isAddMemberLoading || !newMemberId.trim()
-                              } // Disable button while loading or if input is empty
-                            >
-                              {isAddMemberLoading ? "Adding..." : "Add"}
-                            </StyledButton>
-                            <IconButton
-                              color="error"
-                              onClick={() => deleteGroup(group._id, group.name)} 
-                              disabled={isLoading} 
-                            >
-                              <Delete />
-                            </IconButton>
+
+                <Box sx={{ p: 4, borderRadius: '32px', background: alpha('#fff', 0.4), backdropFilter: 'blur(20px)', border: `1px solid ${alpha('#000', 0.03)}`, minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
+                  <Typography variant="h6" fontWeight={900} sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Clock size={22} color="#6366f1" /> Frequency Logs
+                  </Typography>
+                  
+                  {recentMsgs.length > 0 ? (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      {recentMsgs.map((msg, i) => (
+                        <Box key={i} component={motion.div} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }} sx={{ p: 2, borderRadius: '20px', background: alpha('#fff', 0.5), display: 'flex', alignItems: 'center', gap: 2, border: '1px solid transparent', '&:hover': { borderColor: alpha('#6366f1', 0.2), background: alpha('#fff', 0.8) } }}>
+                          <Avatar src={msg.sender?.profile && `${API}/${msg.sender.profile}`} sx={{ width: 40, height: 40, border: '2px solid white' }} />
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                              <span style={{ color: '#6366f1' }}>{msg.sender?.username}</span>: {msg.content.substring(0, 80)}{msg.content.length > 80 ? '...' : ''}
+                            </Typography>
+                            <Typography variant="caption" sx={{ opacity: 0.5 }}>{new Date(msg.timestamp).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</Typography>
                           </Box>
                         </Box>
-                      </GroupItem>
-                    ))
+                      ))}
+                    </Box>
                   ) : (
-                    <Typography color="text.secondary" sx={{ p: 2 }}>
-                      No groups available. Create one to get started!
-                    </Typography>
+                    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', py: 5 }}>
+                      <Box sx={{ mb: 3, opacity: 0.1, color: 'primary.main' }}>
+                        <MessageSquare size={100} strokeWidth={1} />
+                      </Box>
+                      <Typography variant="h6" fontWeight={800}>Silence in the Vacuum</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ maxWidth: '300px', mt: 1 }}>Your communication logs are currently empty. Start a transmission to see signal pulses here.</Typography>
+                      <Button variant="contained" onClick={() => navigate('/groups')} sx={{ mt: 3, borderRadius: '12px', fontWeight: 900, px: 4 }}>Explore Frequencies</Button>
+                    </Box>
                   )}
-                </List>
-              </SectionPaper>
-            </Fade>
+                </Box>
+              </Box>
+            </Grid>
+
+            <Grid size={{ xs: 12, lg: 4 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <Box sx={{ p: 4, borderRadius: '32px', background: alpha('#fff', 0.4), backdropFilter: 'blur(20px)', border: `1px solid ${alpha('#000', 0.03)}` }}>
+                  <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 3 }}>Suggested Orbits</Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {conversations.filter(c => c.type === 'group').slice(0, 3).map((group) => (
+                      <Box key={group._id} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Avatar sx={{ background: 'linear-gradient(135deg, #6366f1 0%, #ec4899 100%)', width: 48, height: 48, boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)' }}><Users size={20} /></Avatar>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="subtitle2" fontWeight={800}>{group.display}</Typography>
+                          <Typography variant="caption" sx={{ opacity: 0.6 }}>{group.membersCount} pilots synced</Typography>
+                        </Box>
+                        <IconButton size="small" onClick={() => navigate(`/chat/group/${group._id}`)} sx={{ bgcolor: alpha('#6366f1', 0.1), color: 'primary.main', '&:hover': { bgcolor: 'primary.main', color: 'white' } }}>
+                          <ChevronRight size={18} />
+                        </IconButton>
+                      </Box>
+                    ))}
+                    {conversations.filter(c => c.type === 'group').length === 0 && (
+                      <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', display: 'block' }}>No frequencies manifest in this sector yet.</Typography>
+                    )}
+                    <Button fullWidth variant="outlined" startIcon={<Plus size={18} />} onClick={() => setOpenDialog(true)} sx={{ mt: 1, borderRadius: '12px', fontWeight: 800, borderColor: alpha('#6366f1', 0.3) }}>Manifest Orbit</Button>
+                  </Box>
+                </Box>
+
+                <Box sx={{ p: 4, borderRadius: '32px', background: 'linear-gradient(135deg, #6366f1 0%, #ec4899 100%)', color: 'white', boxShadow: '0 15px 35px rgba(99, 102, 241, 0.3)', position: 'relative', overflow: 'hidden' }}>
+                   <Box sx={{ position: 'relative', zIndex: 1 }}>
+                     <Typography variant="subtitle1" fontWeight={900}>Orbit Pro Station</Typography>
+                     <Typography variant="body2" sx={{ my: 1.5, opacity: 0.9, lineHeight: 1.6 }}>Upgrade your vessel to access encrypted mass-transmissions and priority cloud range.</Typography>
+                     <Button fullWidth sx={{ bgcolor: 'white', color: 'primary.main', fontWeight: 900, py: 1.5, borderRadius: '12px', '&:hover': { bgcolor: alpha('#fff', 0.9), transform: 'scale(1.02)' }, transition: 'all 0.3s' }}>Unlock Galaxy</Button>
+                   </Box>
+                   <Sparkles size={80} style={{ position: 'absolute', bottom: -20, right: -20, opacity: 0.2, transform: 'rotate(-20deg)' }} />
+                </Box>
+              </Box>
+            </Grid>
           </Grid>
-        </Grid>
-      )}
-    </DashboardContainer>
+        </Box>
+      </MainArena>
+
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} PaperProps={{ sx: { borderRadius: '24px', p: 1, backdropFilter: 'blur(30px)', background: alpha('#fff', 0.85), border: '1px solid rgba(255,255,255,0.3)' } }}>
+        <DialogTitle fontWeight={900} sx={{ letterSpacing: '-1px', fontSize: '1.5rem' }}>Open New Frequency</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3, fontWeight: 500 }}>Initialize a collective channel for multi-user transmissions across the orbit.</Typography>
+          <TextField 
+            fullWidth 
+            label="Frequency Name" 
+            variant="outlined" 
+            autoFocus
+            value={newGroupName} 
+            onChange={(e) => setNewGroupName(e.target.value)}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '16px', background: alpha('#000', 0.03) } }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setOpenDialog(false)} sx={{ borderRadius: '12px', fontWeight: 800, color: 'text.secondary' }}>Cancel</Button>
+          <Button variant="contained" onClick={handleCreateGroup} disabled={!newGroupName.trim()} sx={{ borderRadius: '12px', px: 4, fontWeight: 800, boxShadow: '0 8px 15px rgba(99, 102, 241, 0.3)' }}>Initiate Sector</Button>
+        </DialogActions>
+      </Dialog>
+    </DashboardLayout>
   );
 }
 

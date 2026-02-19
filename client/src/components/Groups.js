@@ -4,62 +4,68 @@ import { useNavigate } from "react-router-dom";
 import {
   Box,
   Typography,
-  Paper,
   TextField,
   Button,
   List,
   ListItem,
-  ListItemText,
   Divider,
   Alert,
   IconButton,
-  FormControl,
+  Avatar,
+  Fade,
 } from "@mui/material";
-import { GroupAdd, Delete, PersonAdd } from "@mui/icons-material";
-import { styled } from "@mui/material/styles";
+import { 
+  Users, 
+  Plus, 
+  Trash2, 
+  UserPlus, 
+  ArrowRight,
+  Hash
+} from "lucide-react";
+import { styled, alpha } from "@mui/material/styles";
+import { motion } from "framer-motion";
+import { useUI } from "../context/UIProvider";
 
-const API = process.env.REACT_APP_API;
+const API = process.env.REACT_APP_API || "http://localhost:5000";
 
-// Styled components for custom styling
-const GroupsContainer = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(3),
-  maxWidth: "800px",
-  margin: "0 auto",
-  [theme.breakpoints.down("sm")]: {
-    padding: theme.spacing(2),
+const GlassPaper = styled(motion.div)(({ theme }) => ({
+  background: alpha(theme.palette.background.paper, 0.7),
+  backdropFilter: "blur(12px)",
+  borderRadius: "24px",
+  padding: theme.spacing(4),
+  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+  boxShadow: theme.shadows[4],
+  maxWidth: '800px',
+  margin: '0 auto',
+}));
+
+const StyledTextField = styled(TextField)(({ theme }) => ({
+  '& .MuiOutlinedInput-root': {
+    borderRadius: '12px',
+    backgroundColor: alpha(theme.palette.text.primary, 0.05),
+    '& fieldset': { borderColor: 'transparent' },
   },
 }));
 
-const GroupsPaper = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(2),
-  borderRadius: theme.shape.borderRadius,
-  boxShadow: theme.shadows[3],
-}));
-
-const GroupItem = styled(ListItem)(({ theme }) => ({
-  display: "flex",
-  alignItems: "center",
-  padding: theme.spacing(1.5),
-  "&:hover": {
-    backgroundColor: theme.palette.action.hover,
+const GroupCard = styled(ListItem)(({ theme }) => ({
+  borderRadius: '16px',
+  marginBottom: theme.spacing(2),
+  background: alpha(theme.palette.text.primary, 0.03),
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    background: alpha(theme.palette.primary.main, 0.05),
+    transform: 'translateX(4px)',
   },
 }));
 
-const StyledButton = styled(Button)(({ theme }) => ({
-  textTransform: "none",
-  borderRadius: theme.shape.borderRadius,
-  marginLeft: theme.spacing(1),
-}));
-
-const Groups = ({ token, setToken }) => {
-  const [recentChats, setRecentChats] = useState([]);
+const Groups = ({ token }) => {
   const [groups, setGroups] = useState([]);
   const [newGroupName, setNewGroupName] = useState("");
   const [newMemberId, setNewMemberId] = useState("");
-  const [message, setMessage] = useState({ text: "", type: "" });
+  const { showToast, confirmAction } = useUI();
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Fetch groups on mount
   useEffect(() => {
     const fetchGroups = async () => {
       try {
@@ -68,191 +74,145 @@ const Groups = ({ token, setToken }) => {
         });
         setGroups(data);
       } catch (err) {
-        console.error("Fetch groups error:", err);
-        setMessage({ text: "Failed to load groups", type: "error" });
+        showToast("Failed to load groups", "error");
       }
     };
     fetchGroups();
-  }, [token]);
+  }, [token, showToast]);
 
-  // Create group
-  const createGroup = async (e) => {
+  const handleCreateGroup = async (e) => {
     e.preventDefault();
+    if (!newGroupName.trim()) return;
+    setIsLoading(true);
     try {
-      const { data } = await axios.post(
-        `${API}/api/groups`,
-        { name: newGroupName },
+      const { data } = await axios.post(`${API}/api/groups`, 
+        { name: newGroupName.trim() },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setGroups((prev) => [...prev, data]);
-      setMessage({
-        text: `Group "${newGroupName}" created successfully`,
-        type: "success",
-      });
+      setGroups(prev => [...prev, data]);
       setNewGroupName("");
+      showToast("Group created successfully!", "success");
     } catch (err) {
-      console.error("Create group error:", err);
-      setMessage({ text: "Failed to create group", type: "error" });
+      showToast("Failed to create group", "error");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Join group chat
-  const joinGroupChat = (groupId) => {
-    navigate(`/chat/group/${groupId}`);
+  const handleAddMember = async (groupId) => {
+    if (!newMemberId.trim()) return;
+    try {
+      const { data } = await axios.put(`${API}/api/groups/${groupId}/members`,
+        { memberId: newMemberId.trim() },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setGroups(prev => prev.map(g => g._id === groupId ? { ...g, members: data.group.members } : g));
+      setNewMemberId("");
+      showToast("Member added successfully!", "success");
+    } catch (err) {
+      showToast("Failed to add member", "error");
+    }
   };
 
-  // Delete group
-  const deleteGroup = async (groupId, name) => {
+  const handleDeleteGroup = async (groupId) => {
+    const isConfirmed = await confirmAction({
+        title: "Delete Group Channel?",
+        message: "This action cannot be undone. All transmission logs will be lost.",
+        confirmText: "Delete Channel",
+        severity: "error"
+    });
+
+    if (!isConfirmed) return;
+
     try {
-      const response = await axios.delete(`${API}/api/groups/${groupId}`, {
+      await axios.delete(`${API}/api/groups/${groupId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (response.data?.message.includes("successfully")) {
-        setMessage({
-          text: `Group "${name}" deleted successfully`,
-          type: "success",
-        });
-        setGroups((prev) => prev.filter((group) => group._id !== groupId));
-        setRecentChats((prev) =>
-          prev.filter((chat) => !(chat.groupId && chat.groupId === groupId))
-        );
-        const timer = setTimeout(
-          () => setMessage({ text: "", type: "" }),
-          3000
-        );
-        return () => clearTimeout(timer);
-      } else {
-        setMessage({
-          text: response.data.message || "Failed to delete group",
-          type: "error",
-        });
-      }
+      setGroups(prev => prev.filter(g => g._id !== groupId));
+      showToast("Group deleted successfully!", "success");
     } catch (err) {
-      let errorMessage = "Network error";
-      if (err.response) {
-        errorMessage = err.response.data.message || "Failed to delete group";
-      } else if (err.request) {
-        errorMessage = "No response from server";
-      }
-      setMessage({ text: errorMessage, type: "error" });
-    }
-  };
-
-  // Confirm delete
-  const confirmDelete = (groupId, name) => {
-    if (window.confirm(`Are you sure you want to delete group "${name}"?`)) {
-      deleteGroup(groupId, name);
-    }
-  };
-
-  // Add member to group
-  const addMember = async (groupId) => {
-    try {
-      const response = await axios.put(
-        `${API}/api/groups/${groupId}/members`,
-        { memberId: newMemberId },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setMessage({
-        text: response.data.message || "Member added successfully",
-        type: "success",
-      });
-      setGroups((prev) =>
-        prev.map((group) =>
-          group._id === groupId
-            ? { ...group, members: response.data.group.members }
-            : group
-        )
-      );
-      setNewMemberId("");
-      const timer = setTimeout(() => setMessage({ text: "", type: "" }), 3000);
-      return () => clearTimeout(timer);
-    } catch (err) {
-      let errorMessage = "Network error";
-      if (err.response) {
-        errorMessage = err.response.data.message || "Failed to add member";
-      } else if (err.request) {
-        errorMessage = "No response from server";
-      }
-      setMessage({ text: errorMessage, type: "error" });
+      showToast("Failed to delete group", "error");
     }
   };
 
   return (
-    <GroupsContainer>
-      <Typography variant="h5" gutterBottom sx={{ fontWeight: "bold" }}>
-        Groups
-      </Typography>
-      <GroupsPaper>
-        {message.text && (
-          <Alert severity={message.type} sx={{ mb: 2 }}>
-            {message.text}
-          </Alert>
-        )}
-        <Box component="form" onSubmit={createGroup} sx={{ mb: 2, display: "flex", gap: 1 }}>
-          <TextField
+    <Box sx={{ p: { xs: 2, md: 4 } }}>
+      <GlassPaper initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+          <Box sx={{ p: 1, bgcolor: 'primary.main', borderRadius: '12px', color: 'white' }}>
+            <Users size={24} />
+          </Box>
+          <Typography variant="h4" fontWeight={800}>Group Conversations</Typography>
+        </Box>
+
+
+
+        <Box component="form" onSubmit={handleCreateGroup} sx={{ display: 'flex', gap: 2, mb: 4 }}>
+          <StyledTextField
             fullWidth
-            label="New group name"
+            placeholder="Enter new group name..."
             value={newGroupName}
             onChange={(e) => setNewGroupName(e.target.value)}
-            required
-            size="small"
           />
-          <StyledButton
-            variant="contained"
-            color="primary"
-            type="submit"
-            startIcon={<GroupAdd />}
+          <Button 
+            variant="contained" 
+            type="submit" 
+            disabled={isLoading || !newGroupName.trim()}
+            startIcon={isLoading ? null : <Plus size={18} />}
+            sx={{ px: 4, borderRadius: '12px' }}
           >
-            Create Group
-          </StyledButton>
+            Create
+          </Button>
         </Box>
-        <Divider sx={{ mb: 2 }} />
-        <List>
+
+        <Divider sx={{ mb: 4, opacity: 0.5 }} />
+
+        <List sx={{ p: 0 }}>
           {groups.length > 0 ? (
             groups.map((group) => (
-              <GroupItem key={group._id}>
-                <Box sx={{ display: "flex", alignItems: "center", width: "100%" }}>
-                  <ListItemText
-                    primary={group.name}
-                    onClick={() => joinGroupChat(group._id)}
-                    sx={{ cursor: "pointer" }}
-                  />
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: 2 }}>
-                    <FormControl sx={{ minWidth: 120 }}>
-                      <TextField
+              <GroupCard key={group._id}>
+                <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 2 }}>
+                  <Avatar sx={{ bgcolor: 'secondary.main', width: 48, height: 48 }}>
+                    <Hash size={24} />
+                  </Avatar>
+                  <Box sx={{ flex: 1, cursor: 'pointer' }} onClick={() => navigate(`/chat/group/${group._id}`)}>
+                    <Typography variant="h6" fontWeight={700}>{group.name}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {group.members?.length || 0} members • Click to join conversation
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 1 }}>
+                      <StyledTextField
                         size="small"
-                        label="Member ID"
+                        placeholder="Invite User ID"
                         value={newMemberId}
                         onChange={(e) => setNewMemberId(e.target.value)}
+                        sx={{ width: 140 }}
                       />
-                    </FormControl>
-                    <StyledButton
-                      variant="outlined"
-                      color="primary"
-                      onClick={() => addMember(group._id)}
-                      startIcon={<PersonAdd />}
-                    >
-                      Add
-                    </StyledButton>
-                    <IconButton
-                      color="error"
-                      onClick={() => confirmDelete(group._id, group.name)}
-                    >
-                      <Delete />
+                      <IconButton onClick={() => handleAddMember(group._id)} color="primary">
+                        <UserPlus size={20} />
+                      </IconButton>
+                    </Box>
+                    <IconButton onClick={() => handleDeleteGroup(group._id)} color="error">
+                      <Trash2 size={20} />
+                    </IconButton>
+                    <IconButton onClick={() => navigate(`/chat/group/${group._id}`)} color="primary">
+                      <ArrowRight size={20} />
                     </IconButton>
                   </Box>
                 </Box>
-              </GroupItem>
+              </GroupCard>
             ))
           ) : (
-            <Typography color="textSecondary" sx={{ p: 2 }}>
-              No groups available. Create one to get started!
-            </Typography>
+            <Box sx={{ textAlign: 'center', py: 8, opacity: 0.5 }}>
+              <Typography variant="h6">No groups yet</Typography>
+              <Typography>Create your first group to start a team conversation!</Typography>
+            </Box>
           )}
         </List>
-      </GroupsPaper>
-    </GroupsContainer>
+      </GlassPaper>
+    </Box>
   );
 };
 

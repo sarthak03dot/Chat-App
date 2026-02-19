@@ -1,7 +1,7 @@
+import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 import React, { useEffect, useState } from "react";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { Link as RouterLink, useNavigate, useLocation } from "react-router-dom";
 import {
   AppBar,
   Toolbar,
@@ -12,278 +12,240 @@ import {
   MenuItem,
   Box,
   Avatar,
+  Container,
+  Divider,
 } from "@mui/material";
-import {
+import { 
+  MessageSquare, 
+  Sun, 
+  Moon, 
+  LogOut, 
   Menu as MenuIcon,
-  LightMode,
-  DarkMode,
-  Logout,
-} from "@mui/icons-material";
-import { styled } from "@mui/material/styles";
+  User,
+  LayoutDashboard,
+  Users,
+  Settings
+} from "lucide-react";
+import { styled, alpha } from "@mui/material/styles";
+import { motion } from "framer-motion";
+import { useUI } from "../context/UIProvider";
 
-const API = process.env.REACT_APP_API;
-
-// Styled components for custom styling
-const StyledAppBar = styled(AppBar)(({ theme }) => ({
-  backgroundColor: theme.palette.primary.main,
-  boxShadow: theme.shadows[3],
+const GlassAppBar = styled(AppBar)(({ theme }) => ({
+  background: theme.palette.mode === 'dark' 
+    ? alpha(theme.palette.background.default, 0.5) 
+    : alpha(theme.palette.background.default, 0.5),
+  backdropFilter: "blur(20px)",
+  borderBottom: `1px solid ${alpha(theme.palette.divider, 0.05)}`,
+  color: theme.palette.text.primary,
+  boxShadow: "none",
+  transition: 'background 0.3s ease',
 }));
 
-const StyledToolbar = styled(Toolbar)(({ theme }) => ({
-  display: "flex",
-  justifyContent: "space-between",
-  padding: theme.spacing(0, 2),
-  [theme.breakpoints.down("sm")]: {
-    padding: theme.spacing(0, 1),
+const NavLink = styled(motion.div)(({ theme, $active }) => ({
+  position: 'relative',
+  display: 'flex',
+  alignItems: 'center',
+  padding: '6px 12px',
+  borderRadius: '12px',
+  cursor: 'pointer',
+  color: $active ? theme.palette.primary.main : theme.palette.text.secondary,
+  fontWeight: 600,
+  fontSize: '0.9rem',
+  gap: '8px',
+  transition: 'all 0.2s ease',
+  '&:hover': {
+    color: theme.palette.primary.main,
+    background: alpha(theme.palette.primary.main, 0.05),
   },
+  ...($active && {
+    '&::after': {
+      content: '""',
+      position: 'absolute',
+      bottom: -15,
+      left: '20%',
+      width: '60%',
+      height: '3px',
+      background: theme.palette.primary.main,
+      borderRadius: '2px 2px 0 0',
+      boxShadow: `0 -2px 10px ${theme.palette.primary.main}`,
+    }
+  })
 }));
 
-const NavBrand = styled(Box)(({ theme }) => ({
-  display: "flex",
-  alignItems: "center",
-  gap: theme.spacing(1),
-  "& a": {
-    textDecoration: "none",
-    color: theme.palette.common.white,
-    display: "flex",
-    alignItems: "center",
-    gap: theme.spacing(1),
-  },
-}));
-
-const NavLinks = styled(Box)(({ theme }) => ({
-  display: "flex",
-  alignItems: "center",
-  gap: theme.spacing(2),
-  [theme.breakpoints.down("md")]: {
-    display: "none",
-  },
-}));
-
-const NavUser = styled(Box)(({ theme }) => ({
-  display: "flex",
-  alignItems: "center",
-  gap: theme.spacing(1),
-  [theme.breakpoints.down("md")]: {
-    display: "none",
-  },
-}));
-
-const MobileMenuButton = styled(IconButton)(({ theme }) => ({
-  display: "none",
-  [theme.breakpoints.down("md")]: {
-    display: "block",
-  },
-}));
-
-function Navbar({ token, setToken }) {
+function Navbar({ token, setToken, toggleTheme, mode }) {
   const navigate = useNavigate();
-  const [username, setUsername] = useState("User");
+  const location = useLocation();
+  const { confirmAction } = useUI();
+  const [user, setUser] = useState(null);
   const [menuOpen, setMenuOpen] = useState(null);
-  const [isDark, setIsDark] = useState(
-    () => localStorage.getItem("theme") === "dark"
-  );
+  
   const userId = token ? jwtDecode(token).userId : null;
+  const API = process.env.REACT_APP_API || "http://localhost:5000";
 
   useEffect(() => {
-    if (token && userId) {
-      const decodedToken = jwtDecode(token);
-      const tokenUsername =
-        decodedToken.username || decodedToken.name || decodedToken.user || null;
-      if (tokenUsername) {
-        setUsername(tokenUsername);
-      } else {
-        // Fetch username from backend if not in token
-        axios
-          .get(`${API}/api/users/${userId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-          .then((response) => {
-            setUsername(response.data.username || "User");
-          })
-          .catch((err) => {
-            console.error("Failed to fetch username:", err);
-            setUsername("User"); // Fallback
+    const fetchUser = async () => {
+      if (token && userId) {
+        try {
+          const { data } = await axios.get(`${API}/api/users/${userId}`, {
+            headers: { Authorization: `Bearer ${token}` }
           });
+          setUser(data);
+        } catch (err) {
+          console.error("Failed to fetch user in Navbar", err);
+          if (err.response?.status === 404) {
+            localStorage.removeItem("token");
+            setToken(null);
+            navigate("/login");
+          }
+        }
+      } else {
+        setUser(null);
       }
+    };
+    fetchUser();
+  }, [token, userId, API, navigate, setToken]);
+
+  const displayUsername = user?.username || "User";
+  const displayProfile = user?.profile ? `${API}/${user.profile}` : "";
+
+  const handleLogout = async () => {
+    const isConfirmed = await confirmAction({
+      title: "Disconnect from Orbit?",
+      message: "You are about to close this communication channel. Any unsaved data in drafts will be lost.",
+      confirmText: "Sign Out",
+      cancelText: "Stay Connected",
+      severity: "warning"
+    });
+
+    if (isConfirmed) {
+      localStorage.removeItem("token");
+      setToken(null);
+      navigate("/login");
     }
-  }, [token, userId]);
-
-  useEffect(() => {
-    if (isDark) {
-      document.body.classList.add("dark-mode");
-      localStorage.setItem("theme", "dark");
-    } else {
-      document.body.classList.remove("dark-mode");
-      localStorage.setItem("theme", "light");
-    }
-  }, [isDark]);
-
-  const toggleTheme = () => {
-    setIsDark((prev) => !prev);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    setToken(null);
-    navigate("/login");
-    setMenuOpen(null);
-  };
-
-  const handleMenuOpen = (event) => {
-    setMenuOpen(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setMenuOpen(null);
-  };
+  const menuItems = [
+    { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+    { label: 'Groups', path: '/groups', icon: Users },
+    { label: 'Profile', path: '/profile', icon: User },
+  ];
 
   return (
-    <StyledAppBar position="static">
-      <StyledToolbar>
-        <NavBrand>
-          <RouterLink to="/">
-            <Typography variant="h6" sx={{ fontWeight: "bold" }}>
-              Let's Chat
+    <GlassAppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+      <Container maxWidth="xl">
+        <Toolbar disableGutters sx={{ height: 72, justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <motion.div whileHover={{ rotate: 10 }}>
+              <Box sx={{ 
+                background: `linear-gradient(135deg, #6366f1 0%, #ec4899 100%)`,
+                p: 1.2,
+                borderRadius: '12px',
+                display: 'flex',
+                boxShadow: '0 8px 20px rgba(99, 102, 241, 0.3)'
+              }}>
+                <MessageSquare color="white" size={22} />
+              </Box>
+            </motion.div>
+            <Typography
+              variant="h5"
+              component={RouterLink}
+              to="/"
+              sx={{
+                fontWeight: 900,
+                textDecoration: 'none',
+                color: 'inherit',
+                letterSpacing: '-1px',
+                display: { xs: 'none', sm: 'block' },
+                background: 'linear-gradient(to right, #6366f1, #ec4899)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}
+            >
+              Orbit
             </Typography>
-            <Avatar sx={{ bgcolor: "transparent", fontSize: "1.5rem" }}>
-              💬
-            </Avatar>
-          </RouterLink>
-        </NavBrand>
+          </Box>
 
+          <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 1 }}>
+            {token ? menuItems.map((item) => (
+              <NavLink 
+                key={item.path}
+                $active={location.pathname === item.path}
+                onClick={() => navigate(item.path)}
+                whileHover={{ y: -2 }}
+              >
+                <item.icon size={18} />
+                {item.label}
+              </NavLink>
+            )) : (
+              <>
+                <Button component={RouterLink} to="/login" sx={{ borderRadius: '12px', fontWeight: 600 }}>Login</Button>
+                <Button component={RouterLink} to="/register" variant="contained" sx={{ borderRadius: '12px', fontWeight: 600, px: 3 }}>Join Orbit</Button>
+              </>
+            )}
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <IconButton onClick={toggleTheme} sx={{ p: 1.2, border: '1px solid', borderColor: 'divider' }}>
+              {mode === 'dark' ? <Sun size={20} color="#fbbf24" /> : <Moon size={20} color="#6366f1" />}
+            </IconButton>
+            
+            {token && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+                  <Typography variant="body2" sx={{ fontWeight: 800, lineHeight: 1 }}>{displayUsername}</Typography>
+                  <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 600 }}>Pro Member</Typography>
+                </Box>
+                <IconButton onClick={(e) => setMenuOpen(e.currentTarget)} sx={{ p: 0.5, border: '2px solid', borderColor: 'primary.main' }}>
+                  <Avatar src={displayProfile} sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: '0.9rem' }}>
+                    {displayUsername[0]?.toUpperCase()}
+                  </Avatar>
+                </IconButton>
+              </Box>
+            )}
+            
+            <IconButton 
+              sx={{ display: { xs: 'flex', md: 'none' } }}
+              onClick={(e) => setMenuOpen(e.currentTarget)}
+            >
+              <MenuIcon />
+            </IconButton>
+          </Box>
+        </Toolbar>
+      </Container>
+
+      <Menu
+        anchorEl={menuOpen}
+        open={Boolean(menuOpen)}
+        onClose={() => setMenuOpen(null)}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+        PaperProps={{
+          sx: {
+            mt: 2,
+            minWidth: 200,
+            borderRadius: '20px',
+            p: 1,
+            boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
+            border: '1px solid',
+            borderColor: 'divider'
+          }
+        }}
+      >
         {token && (
-          <NavUser>
-            <Typography variant="body1">
-              Welcome, <b>{username}</b>
-            </Typography>
-          </NavUser>
+          <Box sx={{ p: 2, mb: 1 }}>
+            <Typography variant="subtitle2" fontWeight={800}>{displayUsername}</Typography>
+            <Typography variant="caption" color="text.secondary">Account Management</Typography>
+          </Box>
         )}
-
-        <NavLinks>
-          {token ? (
-            <>
-              <Button color="inherit" component={RouterLink} to="/">
-                Dashboard
-              </Button>
-              <Button
-                color="inherit"
-                component={RouterLink}
-                to={`/chat/private/${userId}`}
-              >
-                Chats
-              </Button>
-              <Button color="inherit" component={RouterLink} to="/groups">
-                Groups
-              </Button>
-              <Button color="inherit" component={RouterLink} to="/profile">
-                Profile
-              </Button>
-              <IconButton
-                color="inherit"
-                onClick={toggleTheme}
-                title="Toggle Theme"
-              >
-                {isDark ? <LightMode /> : <DarkMode />}
-              </IconButton>
-              <Button
-                color="inherit"
-                onClick={handleLogout}
-                startIcon={<Logout />}
-              >
-                Logout
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button color="inherit" component={RouterLink} to="/login">
-                Login
-              </Button>
-              <Button color="inherit" component={RouterLink} to="/register">
-                Register
-              </Button>
-              <IconButton
-                color="inherit"
-                onClick={toggleTheme}
-                title="Toggle Theme"
-              >
-                {isDark ? <LightMode /> : <DarkMode />}
-              </IconButton>
-            </>
-          )}
-        </NavLinks>
-
-        <MobileMenuButton
-          color="inherit"
-          onClick={handleMenuOpen}
-          aria-label="menu"
-        >
-          <MenuIcon />
-        </MobileMenuButton>
-
-        <Menu
-          anchorEl={menuOpen}
-          open={Boolean(menuOpen)}
-          onClose={handleMenuClose}
-          PaperProps={{
-            sx: { minWidth: 200 },
-          }}
-        >
-          {token ? (
-            <>
-              <MenuItem onClick={handleMenuClose} component={RouterLink} to="/">
-                Dashboard
-              </MenuItem>
-              <MenuItem
-                onClick={handleMenuClose}
-                component={RouterLink}
-                to={`/chat/private/${userId}`}
-              >
-                Chats
-              </MenuItem>
-              <MenuItem
-                onClick={handleMenuClose}
-                component={RouterLink}
-                to="/groups"
-              >
-                Groups
-              </MenuItem>
-              <MenuItem
-                onClick={handleMenuClose}
-                component={RouterLink}
-                to="/profile"
-              >
-                Profile
-              </MenuItem>
-              <MenuItem onClick={toggleTheme}>
-                {isDark ? "Light Theme" : "Dark Theme"}
-              </MenuItem>
-              <MenuItem onClick={handleLogout}>Logout</MenuItem>
-            </>
-          ) : (
-            <>
-              <MenuItem
-                onClick={handleMenuClose}
-                component={RouterLink}
-                to="/login"
-              >
-                Login
-              </MenuItem>
-              <MenuItem
-                onClick={handleMenuClose}
-                component={RouterLink}
-                to="/register"
-              >
-                Register
-              </MenuItem>
-              <MenuItem onClick={toggleTheme}>
-                {isDark ? "Light Theme" : "Dark Theme"}
-              </MenuItem>
-            </>
-          )}
-        </Menu>
-      </StyledToolbar>
-    </StyledAppBar>
+        <MenuItem onClick={() => { navigate("/profile"); setMenuOpen(null); }} sx={{ borderRadius: '12px', gap: 1.5, py: 1 }}>
+          <Settings size={18} /> Settings
+        </MenuItem>
+        <Divider sx={{ my: 1, opacity: 0.5 }} />
+        <MenuItem onClick={handleLogout} sx={{ borderRadius: '12px', gap: 1.5, py: 1, color: 'error.main' }}>
+          <LogOut size={18} /> Sign Out
+        </MenuItem>
+      </Menu>
+    </GlassAppBar>
   );
 }
 

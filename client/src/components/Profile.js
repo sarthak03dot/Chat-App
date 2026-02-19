@@ -1,72 +1,97 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Typography,
-  Paper,
   TextField,
   Button,
-  Alert,
   Avatar,
-  Card,
-  CardContent,
-  Divider,
-  Grid,
   IconButton,
+  Grid,
+  CircularProgress,
+  Snackbar,
+  Alert,
 } from "@mui/material";
-import { PhotoCamera, Save } from "@mui/icons-material";
-import { styled } from "@mui/material/styles";
+import { 
+  Camera, 
+  Save, 
+  Mail, 
+  Phone, 
+  User, 
+  ShieldCheck,
+  Eye,
+  EyeOff,
+  ArrowLeft,
+  Sparkles,
+  Zap,
+  Globe
+} from "lucide-react";
+import { styled, alpha } from "@mui/material/styles";
+import { motion, AnimatePresence } from "framer-motion";
+import { useUI } from "../context/UIProvider";
 
-const API = process.env.REACT_APP_API;
+const API = process.env.REACT_APP_API || "http://localhost:5000";
 
-// Styled components for custom styling
 const ProfileContainer = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(3),
-  maxWidth: "800px",
-  margin: "0 auto",
-  [theme.breakpoints.down("sm")]: {
+  minHeight: 'calc(100vh - 80px)',
+  padding: theme.spacing(4),
+  maxWidth: '1100px',
+  margin: '0 auto',
+  [theme.breakpoints.down('sm')]: {
     padding: theme.spacing(2),
   },
 }));
 
-const ProfilePaper = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(3),
-  borderRadius: theme.shape.borderRadius,
-  boxShadow: theme.shadows[3],
+const GlassCard = styled(motion.div)(({ theme }) => ({
+  background: alpha(theme.palette.background.paper, 0.4),
+  backdropFilter: "blur(20px)",
+  borderRadius: "32px",
+  padding: theme.spacing(4),
+  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+  boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+  height: '100%',
 }));
 
-const ProfileCard = styled(Card)(({ theme }) => ({
-  marginBottom: theme.spacing(2),
-  borderRadius: theme.shape.borderRadius,
-  boxShadow: theme.shadows[2],
+const StyledInput = styled(TextField)(({ theme }) => ({
+  '& .MuiOutlinedInput-root': {
+    borderRadius: '16px',
+    backgroundColor: alpha(theme.palette.text.primary, 0.03),
+    transition: 'all 0.3s ease',
+    '& fieldset': { borderColor: 'transparent' },
+    '&:hover fieldset': { borderColor: alpha(theme.palette.primary.main, 0.2) },
+    '&.Mui-focused fieldset': { borderColor: theme.palette.primary.main },
+    '&.Mui-focused': {
+       boxShadow: `0 0 0 4px ${alpha(theme.palette.primary.main, 0.1)}`,
+    },
+  },
 }));
 
-const FormBox = styled(Box)(({ theme }) => ({
-  display: "flex",
-  flexDirection: "column",
-  gap: theme.spacing(2),
-  marginTop: theme.spacing(2),
-}));
-
-const StyledButton = styled(Button)(({ theme }) => ({
-  textTransform: "none",
-  borderRadius: theme.shape.borderRadius,
+const ActionButton = styled(Button)(({ theme }) => ({
+  borderRadius: '16px',
+  padding: '12px 24px',
+  fontWeight: 800,
+  textTransform: 'none',
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    boxShadow: '0 8px 25px rgba(99, 102, 241, 0.4)',
+  },
 }));
 
 function Profile({ token }) {
-  const userId = jwtDecode(token).userId;
-  const [userData, setUserData] = useState({
-    username: "Unknown",
-    email: "Unknown",
-    phone: "",
-    profile: "No Profile",
-  });
+  const navigate = useNavigate();
+  const userId = token ? jwtDecode(token).userId : null;
+  const [userData, setUserData] = useState({ username: "User", email: "", phone: "", profile: "" });
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const { showToast } = useUI();
   const [selectedProfile, setSelectedProfile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -74,257 +99,201 @@ function Profile({ token }) {
         const { data } = await axios.get(`${API}/api/users/${userId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setUserData({
-          username: data.username || "Unknown",
-          email: data.email || "",
-          phone: data.phone || "",
-          profile: data.profile || "",
-        });
-        setNewUsername(data.username || "");
+        setUserData(data);
+        setNewUsername(data.username);
       } catch (err) {
-        setError(
-          "Failed to fetch user data: " +
-            (err.response?.data?.message || err.message || "Unknown error")
-        );
-        console.error("Fetch user data error:", err);
+        showToast("Mission failed: Could not retrieve data", "error");
+      } finally {
+        setLoading(false);
       }
     };
-    fetchUserData();
+    if (userId) fetchUserData();
   }, [token, userId]);
 
-  // Update username
-  const updateUsername = async (e) => {
-    e.preventDefault();
-    try {
-      const { data } = await axios.put(
-        `${API}/api/users/${userId}`,
-        { username: newUsername },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      setUserData((prev) => ({ ...prev, username: newUsername }));
-      setSuccess(data.message || "Username updated successfully!");
-      setError("");
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      setError(
-        "Failed to update username: " +
-          (err.response?.data?.message || err.message || "Server error")
-      );
-      console.error("Update username error:", err);
-      setSuccess("");
-    }
-  };
 
-  // Update password
-  const updatePassword = async (e) => {
-    e.preventDefault();
-    try {
-      const { data } = await axios.put(
-        `${API}/api/users/${userId}`,
-        { password: newPassword },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setNewPassword("");
-      setSuccess(data.message || "Password updated successfully!");
-      setError("");
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      setError(
-        "Failed to update password: " +
-          (err.response?.data?.message || err.message || "Server error")
-      );
-      console.error("Update password error:", err);
-      setSuccess("");
-    }
-  };
 
-  // Profile picture
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       setSelectedProfile(file);
+      setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
-  const updateProfilePicture = async (e) => {
-    e.preventDefault();
-    if (!selectedProfile) {
-      setError("Please select an image to upload.");
-      return;
+  const handleUpdate = async (type, payload) => {
+    setSaving(true);
+    try {
+      const { data } = await axios.put(`${API}/api/users/${userId}`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      showToast(`${type} successfully updated!`);
+      if (data.user) setUserData(data.user);
+      if (payload.username) setNewUsername(payload.username);
+    } catch (err) {
+      showToast(`Hull breach: Failed to update ${type}`, "error");
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const updateProfilePic = async () => {
+    setSaving(true);
     const formData = new FormData();
     formData.append("profile", selectedProfile);
-
     try {
-      const { data } = await axios.put(
-        `${API}/api/upload/${userId}/profile`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
-      setUserData((prev) => ({ ...prev, profile: data.profile }));
+      const { data } = await axios.put(`${API}/api/upload/${userId}/profile`, formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data" 
+        },
+      });
+      setUserData(prev => ({ ...prev, profile: data.profile }));
+      showToast("Avatar transmission complete!");
       setSelectedProfile(null);
-      e.target.reset();
-      setSuccess("Profile picture updated successfully");
-      setError("");
-      setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
-      setError(
-        "Failed to update profile picture: " +
-          (err.response?.data?.message || err.message)
-      );
-      setSuccess("");
+      showToast("Signal lost: Mirror update failed", "error");
+    } finally {
+      setSaving(false);
     }
   };
+
+  if (loading) return (
+    <Box sx={{ height: 'calc(100vh - 64px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <CircularProgress thickness={5} size={50} sx={{ color: 'primary.main' }} />
+    </Box>
+  );
 
   return (
     <ProfileContainer>
-      <Typography variant="h5" gutterBottom sx={{ fontWeight: "bold", mb: 3 }}>
-        Profile
-      </Typography>
-      <ProfilePaper>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            {success}
-          </Alert>
-        )}
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <ProfileCard>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  User Information
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <Typography variant="body1">
-                  <strong>User ID:</strong> {userId}
-                </Typography>
-                <Typography variant="body1">
-                  <strong>Username:</strong> {userData.username}
-                </Typography>
-                <Typography variant="body1">
-                  <strong>Email:</strong> {userData.email || "Not provided"}
-                </Typography>
-                <Typography variant="body1">
-                  <strong>Phone:</strong> {userData.phone || "Not provided"}
-                </Typography>
-              </CardContent>
-            </ProfileCard>
-            <ProfileCard>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Profile Picture
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                  <Avatar
-                    src={
-                      userData.profile
-                        ? `${API}${userData.profile.startsWith("/") ? "" : "/"}${userData.profile}`
-                        : ""
-                    }
-                    alt={userData.username || "User"}
-                    sx={{ width: 120, height: 120 }}
-                  />
-                  <FormBox component="form" onSubmit={updateProfilePicture}>
-                    <TextField
-                      type="file"
-                      inputProps={{ accept: "image/*" }}
-                      onChange={handleFileChange}
-                      size="small"
-                      sx={{ width: "auto" }}
-                    />
-                    <StyledButton
-                      variant="contained"
-                      color="primary"
-                      type="submit"
-                      startIcon={<PhotoCamera />}
-                      disabled={!selectedProfile}
-                    >
-                      Update Profile
-                    </StyledButton>
-                  </FormBox>
-                </Box>
-              </CardContent>
-            </ProfileCard>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <ProfileCard>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Update Username
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <FormBox component="form" onSubmit={updateUsername}>
-                  <TextField
+      <Box sx={{ mb: 6, display: 'flex', alignItems: 'center', gap: 3 }}>
+        <IconButton onClick={() => navigate('/')} sx={{ background: alpha('#fff', 0.5), backdropFilter: 'blur(10px)', border: '1px solid rgba(0,0,0,0.05)' }}>
+          <ArrowLeft size={24} />
+        </IconButton>
+        <Box>
+          <Typography variant="h3" fontWeight={900} sx={{ letterSpacing: '-2px' }}>Pilot Profile</Typography>
+          <Typography color="text.secondary" fontWeight={600}>Control your identity across the Orbit galaxy.</Typography>
+        </Box>
+      </Box>
+
+      <Grid container spacing={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <GlassCard initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Box sx={{ position: 'relative', mb: 4 }}>
+                <Avatar 
+                  src={previewUrl || (userData.profile ? `${API}/${userData.profile}` : "")}
+                  sx={{ width: 180, height: 180, border: '6px solid white', boxShadow: '0 15px 40px rgba(99,102,241,0.3)' }}
+                />
+                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                  <IconButton 
+                    component="label" 
+                    sx={{ position: 'absolute', bottom: 10, right: 10, bgcolor: 'primary.main', color: 'white', '&:hover': { bgcolor: 'primary.dark' }, p: 1.5, boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}
+                  >
+                    <input hidden type="file" onChange={handleFileChange} />
+                    <Camera size={22} />
+                  </IconButton>
+                </motion.div>
+              </Box>
+              
+              <Typography variant="h5" fontWeight={900}>{userData.username}</Typography>
+              <Typography color="primary.main" fontWeight={800} sx={{ textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.7rem', mt: 1 }}>Orbit Fleet Officer</Typography>
+              
+              <AnimatePresence>
+                {selectedProfile && (
+                  <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} style={{ width: '100%', marginTop: '24px' }}>
+                    <ActionButton variant="contained" onClick={updateProfilePic} startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <Save size={18} />} fullWidth>
+                      Deploy New Avatar
+                    </ActionButton>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <Box sx={{ mt: 5, width: '100%', p: 3, borderRadius: '24px', background: alpha('#000', 0.03) }}>
+                 <Typography variant="overline" sx={{ fontWeight: 800, color: 'text.secondary', mb: 2, display: 'block' }}>Signal Metrics</Typography>
+                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <Mail size={18} color="#6366f1" />
+                    <Typography variant="body2" fontWeight={600} noWrap>{userData.email}</Typography>
+                 </Box>
+                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <Phone size={18} color="#6366f1" />
+                    <Typography variant="body2" fontWeight={600}>{userData.phone || "No link established"}</Typography>
+                 </Box>
+                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Globe size={18} color="#6366f1" />
+                    <Typography variant="body2" fontWeight={600}>Sector Earth-1</Typography>
+                 </Box>
+              </Box>
+            </Box>
+          </GlassCard>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 8 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <GlassCard initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+              <Typography variant="h6" fontWeight={900} sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <User size={24} color="#6366f1" /> Vessel Designation
+              </Typography>
+              <Grid container spacing={3}>
+                <Grid size={{ xs: 12 }}>
+                  <StyledInput
                     fullWidth
-                    label="New Username"
+                    label="Holographic Name"
                     value={newUsername}
                     onChange={(e) => setNewUsername(e.target.value)}
-                    placeholder="Enter new username"
-                    required
-                    size="small"
-                    variant="outlined"
                   />
-                  <StyledButton
-                    fullWidth
-                    variant="contained"
-                    color="primary"
-                    type="submit"
-                    startIcon={<Save />}
+                </Grid>
+                <Grid size={{ xs: 12 }}>
+                  <ActionButton 
+                    variant="contained" 
+                    onClick={() => handleUpdate('Username', { username: newUsername })}
+                    disabled={saving || !newUsername.trim()}
+                    startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <Sparkles size={18} />}
                   >
-                    Update Username
-                  </StyledButton>
-                </FormBox>
-              </CardContent>
-            </ProfileCard>
-            <ProfileCard>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Change Password
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <FormBox component="form" onSubmit={updatePassword}>
-                  <TextField
+                    Sync Credentials
+                  </ActionButton>
+                </Grid>
+              </Grid>
+            </GlassCard>
+
+            <GlassCard initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}>
+              <Typography variant="h6" fontWeight={900} sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <ShieldCheck size={24} color="#ec4899" /> Encryption Core
+              </Typography>
+              <Grid container spacing={3}>
+                <Grid size={{ xs: 12 }}>
+                  <StyledInput
                     fullWidth
-                    label="New Password"
-                    type="password"
+                    label="New Access Key"
+                    type={showPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Enter new password"
-                    required
-                    size="small"
-                    variant="outlined"
+                    InputProps={{
+                      endAdornment: (
+                        <IconButton onClick={() => setShowPassword(!showPassword)}>
+                          {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </IconButton>
+                      )
+                    }}
                   />
-                  <StyledButton
-                    fullWidth
-                    variant="contained"
-                    color="primary"
-                    type="submit"
-                    startIcon={<Save />}
+                </Grid>
+                <Grid size={{ xs: 12 }}>
+                  <ActionButton 
+                    variant="outlined" 
+                    onClick={() => handleUpdate('Password', { password: newPassword })}
+                    disabled={saving || !newPassword.trim()}
+                    startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <Zap size={18} />}
+                    sx={{ borderColor: alpha('#ec4899', 0.5), color: '#ec4899', '&:hover': { borderColor: '#ec4899', background: alpha('#ec4899', 0.05), boxShadow: '0 8px 25px rgba(236, 72, 153, 0.3)' } }}
                   >
-                    Change Password
-                  </StyledButton>
-                </FormBox>
-              </CardContent>
-            </ProfileCard>
-          </Grid>
+                    Re-encrypt Core
+                  </ActionButton>
+                </Grid>
+              </Grid>
+            </GlassCard>
+          </Box>
         </Grid>
-      </ProfilePaper>
+      </Grid>
+
+
     </ProfileContainer>
   );
 }

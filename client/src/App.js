@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import React, { useEffect, useState, useMemo } from "react";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import {
   Box,
   CssBaseline,
@@ -8,6 +8,8 @@ import {
   styled,
   Typography,
 } from "@mui/material";
+import { AnimatePresence, motion } from "framer-motion";
+import { UIProvider } from "./context/UIProvider";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import Dashboard from "./components/Dashboard";
@@ -23,16 +25,32 @@ const AppContainer = styled(Box)(({ theme }) => ({
   display: "flex",
   flexDirection: "column",
   minHeight: "100vh",
-  backgroundColor: theme.palette.background.default,
+  background: theme.palette.mode === 'dark' 
+    ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
+    : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+  transition: "background 0.3s ease-in-out",
 }));
 
 const MainContent = styled(Box)(({ theme }) => ({
   flex: 1,
-  marginTop: theme.spacing(8), // Space for fixed AppBar
+  marginTop: theme.spacing(8),
+  position: "relative",
   [theme.breakpoints.down("sm")]: {
     marginTop: theme.spacing(7),
   },
 }));
+
+const PageWrapper = ({ children }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -10 }}
+    transition={{ duration: 0.3, ease: "easeOut" }}
+    style={{ width: "100%", height: "100%" }}
+  >
+    {children}
+  </motion.div>
+);
 
 const PendingPage = () => (
   <Box sx={{ textAlign: "center", mt: { xs: "50%", sm: "40%" } }}>
@@ -47,25 +65,35 @@ const createAppTheme = (mode) =>
     palette: {
       mode,
       primary: {
-        main: mode === "dark" ? "#ffb71a" : "#2e7d32", // --primary-color
-        dark: "#1a237e", 
-        light: "#29b6f6",
+        main: "#6366f1", // Indigo
+        light: "#818cf8",
+        dark: "#4f46e5",
       },
       secondary: {
-        main: "#d32f2f", // --secondary-color
+        main: "#ec4899", // Pink
       },
       background: {
-        default: mode === "dark" ? "#9c9a9a" : "#f5f5f5", // --background-neutral
-        paper: mode === "dark" ? "#424242" : "#ffffff", // --accent-color
+        default: mode === "dark" ? "#0f172a" : "#f8fafc",
+        paper: mode === "dark" ? "#1e293b" : "#ffffff",
       },
       text: {
-        primary: mode === "dark" ? "#ffffff" : "#212121", // --text-neutral
+        primary: mode === "dark" ? "#f8fafc" : "#0f172a",
+        secondary: mode === "dark" ? "#94a3b8" : "#64748b",
       },
-      divider: mode === "dark" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+      divider: mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
     },
     typography: {
-      fontFamily:
-        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif',
+      fontFamily: "'Plus Jakarta Sans', 'Outfit', sans-serif",
+      h1: { fontWeight: 700 },
+      h2: { fontWeight: 700 },
+      h3: { fontWeight: 700 },
+      h4: { fontWeight: 700 },
+      h5: { fontWeight: 600 },
+      h6: { fontWeight: 600 },
+      button: { textTransform: "none", fontWeight: 600 },
+    },
+    shape: {
+      borderRadius: 12,
     },
     components: {
       MuiCssBaseline: {
@@ -80,8 +108,73 @@ const createAppTheme = (mode) =>
           },
         },
       },
+      MuiButton: {
+        styleOverrides: {
+          root: {
+            borderRadius: 12,
+            padding: "8px 20px",
+            transition: "all 0.2s ease-in-out",
+            "&:hover": {
+              transform: "translateY(-1px)",
+              boxShadow: "0 4px 12px rgba(99, 102, 241, 0.2)",
+            },
+          },
+        },
+      },
+      MuiPaper: {
+        styleOverrides: {
+          root: {
+            backgroundImage: "none",
+            boxShadow: mode === 'dark' 
+              ? '0 4px 20px rgba(0,0,0,0.4)' 
+              : '0 4px 20px rgba(0,0,0,0.05)',
+            border: mode === 'dark' 
+              ? '1px solid rgba(255,255,255,0.05)'
+              : '1px solid rgba(0,0,0,0.05)',
+          },
+        },
+      },
     },
   });
+
+function AnimatedRoutes({ token, setToken, toggleTheme }) {
+  const location = useLocation();
+  
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route
+          path="/"
+          element={
+            <PageWrapper>
+              {token ? (
+                <Dashboard token={token} setToken={setToken} />
+              ) : (
+                <Login setToken={setToken} />
+              )}
+            </PageWrapper>
+          }
+        />
+        <Route path="/register" element={<PageWrapper><Register setToken={setToken} /></PageWrapper>} />
+        <Route path="/login" element={<PageWrapper><Login setToken={setToken} /></PageWrapper>} />
+        <Route path="/pending" element={<PageWrapper><PendingPage /></PageWrapper>} />
+        <Route
+          path="/chat/:userId"
+          element={<PageWrapper><Chat token={token} /></PageWrapper>}
+        />
+        <Route
+          path="/chat/group/:groupId"
+          element={<PageWrapper><Chat token={token} /></PageWrapper>}
+        />
+        <Route
+          path="/groups"
+          element={<PageWrapper><Groups token={token} setToken={setToken} /></PageWrapper>}
+        />
+        <Route path="/profile" element={<PageWrapper><Profile token={token} /></PageWrapper>} />
+      </Routes>
+    </AnimatePresence>
+  );
+}
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token"));
@@ -89,7 +182,8 @@ function App() {
     localStorage.getItem("theme") === "dark" ? "dark" : "light"
   );
 
-  // Update theme mode
+  const theme = useMemo(() => createAppTheme(mode), [mode]);
+
   const toggleTheme = () => {
     setMode((prev) => {
       const newMode = prev === "light" ? "dark" : "light";
@@ -98,45 +192,24 @@ function App() {
     });
   };
 
+  useEffect(() => {
+    document.body.className = mode;
+  }, [mode]);
+
   return (
-    <ThemeProvider theme={createAppTheme(mode)}>
+    <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
-        <AppContainer>
-          <Navbar token={token} setToken={setToken} toggleTheme={toggleTheme} />
-          <MainContent>
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  token ? (
-                    <Dashboard token={token} setToken={setToken} />
-                  ) : (
-                    <Login setToken={setToken} />
-                  )
-                }
-              />
-              <Route path="/register" element={<Register />} />
-              <Route path="/login" element={<Login setToken={setToken} />} />
-              <Route path="/pending" element={<PendingPage />} />
-              <Route
-                path="/chat/private/:userId"
-                element={<Chat token={token} />}
-              />
-              <Route
-                path="/chat/group/:groupId"
-                element={<Chat token={token} />}
-              />
-              <Route
-                path="/groups"
-                element={<Groups token={token} setToken={setToken} />}
-              />
-              <Route path="/profile" element={<Profile token={token} />} />
-            </Routes>
-          </MainContent>
-          <Footer />
-        </AppContainer>
-      </Router>
+      <UIProvider>
+        <Router>
+          <AppContainer>
+            <Navbar token={token} setToken={setToken} toggleTheme={toggleTheme} mode={mode} />
+            <MainContent>
+              <AnimatedRoutes token={token} setToken={setToken} toggleTheme={toggleTheme} />
+            </MainContent>
+            <Footer />
+          </AppContainer>
+        </Router>
+      </UIProvider>
     </ThemeProvider>
   );
 }
