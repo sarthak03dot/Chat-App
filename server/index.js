@@ -22,14 +22,23 @@ const app = express();
 app.use(bodyParser.json({ limit: "10mb" })); 
 app.use(bodyParser.urlencoded({ extended: true, limit: "10mb" }));
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "http://localhost:3000",
-    methods: ["GET", "POST"],
+const allowedOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
   },
+  credentials: true,
+};
+
+const io = new Server(server, {
+  cors: corsOptions,
 });
 
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 app.use("/api/auth", authRoutes);
@@ -54,6 +63,13 @@ io.on("connection", (socket) => {
       socket.userId = userId;
       socket.join(userId.toString());
       onlineUsers.set(userId.toString(), socket.id);
+      
+      // JOIN GROUP ROOMS
+      const userGroups = await Group.find({ members: userId });
+      userGroups.forEach(g => {
+        socket.join(g._id.toString());
+        console.log(`User ${userId} joined room ${g._id}`);
+      });
       
       await User.findByIdAndUpdate(userId, { online: true });
       io.emit("userStatus", { userId, online: true });
@@ -104,16 +120,22 @@ io.on("connection", (socket) => {
 
       if (data.recipient) {
         const recipientId = data.recipient.toString();
+        
+        // CHECK BLOCKS
+        const recipientUser = await User.findById(recipientId);
+        if (recipientUser?.blockedUsers?.includes(senderId)) {
+          console.log(`Delivery blocked: ${senderId} is blocked by ${recipientId}`);
+          socket.emit("error", { message: "Message could not be delivered." });
+          return;
+        }
+
         io.to(recipientId).emit("receiveMessage", populatedMessage);
         socket.emit("receiveMessage", populatedMessage);
       } else if (data.group) {
-        const group = await Group.findById(data.group).select("members");
-        if (group) {
-          group.members.forEach(member => {
-            const memberId = member.toString();
-            io.to(memberId).emit("receiveMessage", populatedMessage);
-          });
-        }
+        // Broadcast to group room (excluding the sender)
+        socket.to(data.group.toString()).emit("receiveMessage", populatedMessage);
+        // Echo back to sender
+        socket.emit("receiveMessage", populatedMessage);
       }
     } catch (err) {
       console.error("Send message error:", err);
@@ -160,6 +182,24 @@ io.on("connection", (socket) => {
       }
     } catch(err) {
       console.error("Reaction error", err);
+    }
+  });
+
+  socket.on("messageDeleted", async ({ messageId, mode }) => {
+    try {
+      const message = await Message.findById(messageId);
+      if (!message) return;
+
+      const deletePayload = { messageId, mode, userId: message.sender };
+
+      if (message.recipient) {
+        io.to(message.recipient.toString()).emit("messageDeleted", deletePayload);
+        io.to(message.sender.toString()).emit("messageDeleted", deletePayload);
+      } else if (message.group) {
+        io.to(message.group.toString()).emit("messageDeleted", deletePayload);
+      }
+    } catch (err) {
+      console.error("Socket delete error:", err);
     }
   });
 

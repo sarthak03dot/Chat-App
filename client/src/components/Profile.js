@@ -11,9 +11,8 @@ import {
   IconButton,
   Grid,
   CircularProgress,
-  Snackbar,
-  Alert,
 } from "@mui/material";
+
 import { 
   Camera, 
   Save, 
@@ -52,6 +51,10 @@ const GlassCard = styled(motion.div)(({ theme }) => ({
   border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
   boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
   height: '100%',
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(3, 2),
+    borderRadius: '24px',
+  }
 }));
 
 const StyledInput = styled(TextField)(({ theme }) => ({
@@ -78,6 +81,9 @@ const ActionButton = styled(Button)(({ theme }) => ({
     transform: 'translateY(-2px)',
     boxShadow: '0 8px 25px rgba(99, 102, 241, 0.4)',
   },
+  [theme.breakpoints.down('sm')]: {
+    width: '100%',
+  }
 }));
 
 function Profile({ token }) {
@@ -108,9 +114,7 @@ function Profile({ token }) {
       }
     };
     if (userId) fetchUserData();
-  }, [token, userId]);
-
-
+  }, [token, userId, showToast]);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
@@ -121,14 +125,17 @@ function Profile({ token }) {
   };
 
   const handleUpdate = async (type, payload) => {
+    if ((type === 'Username' && !newUsername.trim()) || (type === 'Password' && !newPassword.trim())) return;
+    
     setSaving(true);
     try {
       const { data } = await axios.put(`${API}/api/users/${userId}`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      showToast(`${type} successfully updated!`);
+      showToast(`${type} updated successfully!`, "success");
       if (data.user) setUserData(data.user);
       if (payload.username) setNewUsername(payload.username);
+      if (payload.password) setNewPassword("");
     } catch (err) {
       showToast(`Hull breach: Failed to update ${type}`, "error");
     } finally {
@@ -148,7 +155,7 @@ function Profile({ token }) {
         },
       });
       setUserData(prev => ({ ...prev, profile: data.profile }));
-      showToast("Avatar transmission complete!");
+      showToast("Profile picture updated!", "success");
       setSelectedProfile(null);
     } catch (err) {
       showToast("Signal lost: Mirror update failed", "error");
@@ -165,37 +172,37 @@ function Profile({ token }) {
 
   return (
     <ProfileContainer>
-      <Box sx={{ mb: 6, display: 'flex', alignItems: 'center', gap: 3 }}>
-        <IconButton onClick={() => navigate('/')} sx={{ background: alpha('#fff', 0.5), backdropFilter: 'blur(10px)', border: '1px solid rgba(0,0,0,0.05)' }}>
+      <Box sx={{ mb: { xs: 4, sm: 6 }, display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 2, sm: 3 } }}>
+        <IconButton onClick={() => navigate('/')} sx={{ mt: { xs: 0.5, sm: 0 }, background: alpha('#fff', 0.5), backdropFilter: 'blur(10px)', border: '1px solid rgba(0,0,0,0.05)' }}>
           <ArrowLeft size={24} />
         </IconButton>
         <Box>
-          <Typography variant="h3" fontWeight={900} sx={{ letterSpacing: '-2px' }}>Pilot Profile</Typography>
-          <Typography color="text.secondary" fontWeight={600}>Control your identity across the Orbit galaxy.</Typography>
+          <Typography variant="h3" fontWeight={900} sx={{ letterSpacing: '-2px', fontSize: { xs: '1.75rem', sm: '3rem' } }}>Pilot Profile</Typography>
+          <Typography color="text.secondary" fontWeight={600} sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>Control your identity across the Orbit galaxy.</Typography>
         </Box>
       </Box>
 
-      <Grid container spacing={4}>
+      <Grid container spacing={{ xs: 3, md: 4 }}>
         <Grid size={{ xs: 12, md: 4 }}>
           <GlassCard initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <Box sx={{ position: 'relative', mb: 4 }}>
                 <Avatar 
                   src={previewUrl || (userData.profile ? `${API}/${userData.profile}` : "")}
-                  sx={{ width: 180, height: 180, border: '6px solid white', boxShadow: '0 15px 40px rgba(99,102,241,0.3)' }}
+                  sx={{ width: { xs: 140, sm: 180 }, height: { xs: 140, sm: 180 }, border: '6px solid white', boxShadow: '0 15px 40px rgba(99,102,241,0.3)' }}
                 />
                 <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
                   <IconButton 
                     component="label" 
-                    sx={{ position: 'absolute', bottom: 10, right: 10, bgcolor: 'primary.main', color: 'white', '&:hover': { bgcolor: 'primary.dark' }, p: 1.5, boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}
+                    sx={{ position: 'absolute', bottom: 5, right: 5, bgcolor: 'primary.main', color: 'white', '&:hover': { bgcolor: 'primary.dark' }, p: 1.5, boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}
                   >
                     <input hidden type="file" onChange={handleFileChange} />
-                    <Camera size={22} />
+                    <Camera size={20} />
                   </IconButton>
                 </motion.div>
               </Box>
               
-              <Typography variant="h5" fontWeight={900}>{userData.username}</Typography>
+              <Typography variant="h5" fontWeight={900} sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>{userData.username}</Typography>
               <Typography color="primary.main" fontWeight={800} sx={{ textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.7rem', mt: 1 }}>Orbit Fleet Officer</Typography>
               
               <AnimatePresence>
@@ -208,11 +215,11 @@ function Profile({ token }) {
                 )}
               </AnimatePresence>
 
-              <Box sx={{ mt: 5, width: '100%', p: 3, borderRadius: '24px', background: alpha('#000', 0.03) }}>
+              <Box sx={{ mt: 5, width: '100%', p: { xs: 2.5, sm: 3 }, borderRadius: '24px', background: alpha('#000', 0.03) }}>
                  <Typography variant="overline" sx={{ fontWeight: 800, color: 'text.secondary', mb: 2, display: 'block' }}>Signal Metrics</Typography>
                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                     <Mail size={18} color="#6366f1" />
-                    <Typography variant="body2" fontWeight={600} noWrap>{userData.email}</Typography>
+                    <Typography variant="body2" fontWeight={600} noWrap sx={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userData.email}</Typography>
                  </Box>
                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                     <Phone size={18} color="#6366f1" />
@@ -228,9 +235,9 @@ function Profile({ token }) {
         </Grid>
 
         <Grid size={{ xs: 12, md: 8 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 3, md: 4 } }}>
             <GlassCard initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
-              <Typography variant="h6" fontWeight={900} sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Typography variant="h6" fontWeight={900} sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1.5, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
                 <User size={24} color="#6366f1" /> Vessel Designation
               </Typography>
               <Grid container spacing={3}>
@@ -246,7 +253,7 @@ function Profile({ token }) {
                   <ActionButton 
                     variant="contained" 
                     onClick={() => handleUpdate('Username', { username: newUsername })}
-                    disabled={saving || !newUsername.trim()}
+                    disabled={saving || !newUsername.trim() || newUsername === userData.username}
                     startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <Sparkles size={18} />}
                   >
                     Sync Credentials
@@ -256,7 +263,7 @@ function Profile({ token }) {
             </GlassCard>
 
             <GlassCard initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }}>
-              <Typography variant="h6" fontWeight={900} sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Typography variant="h6" fontWeight={900} sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1.5, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
                 <ShieldCheck size={24} color="#ec4899" /> Encryption Core
               </Typography>
               <Grid container spacing={3}>
@@ -292,8 +299,6 @@ function Profile({ token }) {
           </Box>
         </Grid>
       </Grid>
-
-
     </ProfileContainer>
   );
 }

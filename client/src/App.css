@@ -17,21 +17,16 @@ body {
 
 /* Root Color Variables */
 :root {
-  --primary-color: #2e7d32;
-  --secondary-color: #d32f2f;
+  --primary-color: #6366f1;
+  --secondary-color: #ec4899;
   --accent-color: #ffffff;
-  --background-neutral: #f5f5f5;
-  --text-neutral: #212121;
-  --navbar-dark: #1a237e;
+  --background-neutral: #f8fafc;
+  --text-neutral: #0f172a;
 }
 
-body.dark-mode {
-  --primary-color: #ffb71a;
-  --secondary-color: #d32f2f;
-  --accent-color: #ffffff;
-  --background-neutral: #9c9a9a;
-  --text-neutral: #ffffff;
-  --navbar-dark: #9955da;
+body.dark {
+  --background-neutral: #0f172a;
+  --text-neutral: #f8fafc;
 }
 
 /* App Container */
@@ -784,33 +779,9 @@ body.dark-mode {
   }
 }
 
-/* Hover All btns &&  */
-.logout-btn:hover,
-.logout-btn-li:hover {
-  background-color: #43a047;
-}
-button:hover {
-  background-color: #43a047 !important;
-}
-
-.dashboard-content .create-group button:hover {
-  background-color: #43a047;
-}
-
-.send-btn:hover {
-  background-color: #43a047;
-}
-
-.auth-form button:hover {
-  background-color: #43a047;
-}
-
-.create-Group button:hover {
-  background-color: #43a047;
-}
-
+/* Hover: let MUI handle button hover states — legacy class overrides kept for non-MUI elements */
 .add-member-btn:hover {
-  background-color: #43a047;
+  background-color: #5558e0;
 }
 
 .delete-btn:hover {

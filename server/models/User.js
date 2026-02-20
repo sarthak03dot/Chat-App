@@ -15,6 +15,12 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
 
   online: { type: Boolean, default: false },
+  blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  recentChats: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    lastMessage: String,
+    timestamp: { type: Date, default: Date.now }
+  }],
 });
 
 module.exports = mongoose.model("User", userSchema);

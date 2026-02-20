@@ -6,7 +6,6 @@ import {
   Typography,
   TextField,
   Button,
-  Alert,
   Link,
   InputAdornment,
   IconButton,
@@ -45,6 +44,10 @@ const GlassBox = styled(motion.div)(({ theme }) => ({
   border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
   boxShadow: `0 20px 40px -10px ${alpha(theme.palette.common.black, 0.1)}`,
   zIndex: 1,
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(4, 3),
+    borderRadius: '24px',
+  },
 }));
 
 const InputField = styled(TextField)(({ theme }) => ({
@@ -126,7 +129,7 @@ function Login({ setToken }) {
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
       >
-        <Box sx={{ mb: 6, textAlign: 'center' }}>
+        <Box sx={{ mb: { xs: 4, sm: 6 }, textAlign: 'center' }}>
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
@@ -134,21 +137,21 @@ function Login({ setToken }) {
           >
             <Box sx={{ 
               display: 'inline-flex', 
-              p: 2, 
+              p: { xs: 1.5, sm: 2 }, 
               borderRadius: '20px', 
               background: 'linear-gradient(135deg, #6366f1 0%, #ec4899 100%)',
               color: 'white',
               boxShadow: '0 10px 30px rgba(99, 102, 241, 0.4)',
-              mb: 3
+              mb: { xs: 2, sm: 3 }
             }}>
-              <LogIn size={32} />
+              <LogIn size={window.innerWidth < 600 ? 24 : 32} />
             </Box>
           </motion.div>
           
-          <Typography variant="h4" fontWeight={900} sx={{ letterSpacing: '-1.5px', mb: 1 }}>
+          <Typography variant="h4" fontWeight={900} sx={{ letterSpacing: '-1.5px', mb: 1, fontSize: { xs: '1.75rem', sm: '2.125rem' } }}>
             Sign In to Orbit
           </Typography>
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.9rem', sm: '1rem' } }}>
             Connect back with your universe.
           </Typography>
         </Box>

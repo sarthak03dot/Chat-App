@@ -17,7 +17,9 @@ const messageSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     emoji: String,
     timestamp: { type: Date, default: Date.now }
-  }]
+  }],
+  deletedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  isDeletedForEveryone: { type: Boolean, default: false }
 });
 
 module.exports = mongoose.model("Message", messageSchema);

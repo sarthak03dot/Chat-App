@@ -6,7 +6,6 @@ import {
   Typography,
   TextField,
   Button,
-  Alert,
   Avatar,
   Link,
   InputAdornment,
@@ -47,6 +46,10 @@ const GlassBox = styled(motion.div)(({ theme }) => ({
   border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
   boxShadow: `0 20px 40px -10px ${alpha(theme.palette.common.black, 0.1)}`,
   zIndex: 1,
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(4, 2.5),
+    borderRadius: '24px',
+  },
 }));
 
 const InputField = styled(TextField)(({ theme }) => ({
@@ -131,11 +134,11 @@ function Register({ setToken }) {
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
-        <Box sx={{ mb: 4, textAlign: 'center' }}>
-          <Typography variant="h4" fontWeight={900} sx={{ letterSpacing: '-1.5px', mb: 1 }}>
+        <Box sx={{ mb: { xs: 3, sm: 4 }, textAlign: 'center' }}>
+          <Typography variant="h4" fontWeight={900} sx={{ letterSpacing: '-1.5px', mb: 1, fontSize: { xs: '1.75rem', sm: '2.125rem' } }}>
             Join the Orbit
           </Typography>
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.85rem', sm: '1rem' } }}>
             Your journey through the social galaxy starts here.
           </Typography>
         </Box>
@@ -148,7 +151,7 @@ function Register({ setToken }) {
               <motion.div whileHover={{ scale: 1.05 }} transition={{ type: 'spring', stiffness: 300 }}>
                 <Avatar 
                   src={profile} 
-                  sx={{ width: 110, height: 110, border: '4px solid', borderColor: 'primary.main', boxShadow: '0 12px 24px rgba(0,0,0,0.1)' }} 
+                  sx={{ width: { xs: 90, sm: 110 }, height: { xs: 90, sm: 110 }, border: '4px solid', borderColor: 'primary.main', boxShadow: '0 12px 24px rgba(0,0,0,0.1)' }} 
                 />
               </motion.div>
               <IconButton

@@ -13,6 +13,7 @@ router.get("/messages/:userId", auth, async (req, res) => {
         { sender: req.user.userId, recipient: req.params.userId },
         { sender: req.params.userId, recipient: req.user.userId },
       ],
+      deletedBy: { $ne: req.user.userId }
     })
     .populate("sender", "username profile")
     .populate("replyTo", "content sender")
@@ -25,7 +26,10 @@ router.get("/messages/:userId", auth, async (req, res) => {
 
 router.get("/group/:groupId", auth, async (req, res) => {
   try {
-    const messages = await Message.find({ group: req.params.groupId })
+    const messages = await Message.find({ 
+      group: req.params.groupId,
+      deletedBy: { $ne: req.user.userId }
+    })
       .populate("sender", "username profile")
       .populate("replyTo", "content sender")
       .populate("reactions.user", "username profile");
@@ -62,6 +66,21 @@ router.post("/:messageId/react", auth, async (req, res) => {
     await message.populate("reactions.user", "username profile");
     
     res.json(message);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Delete a single message (only by the sender)
+router.delete("/message/:messageId", auth, async (req, res) => {
+  try {
+    const message = await Message.findById(req.params.messageId);
+    if (!message) return res.status(404).json({ message: "Message not found" });
+    if (message.sender.toString() !== req.user.userId) {
+      return res.status(403).json({ message: "Unauthorized: You can only delete your own messages" });
+    }
+    await Message.findByIdAndDelete(req.params.messageId);
+    res.json({ success: true, messageId: req.params.messageId });
   } catch (err) {
     res.status(500).json({ message: "Server error" });
   }
@@ -135,6 +154,65 @@ router.delete("/group/:groupId/messages", auth, async (req, res) => {
   }
 });
 
+// NEW Granular Delete
+router.post("/message/:messageId/delete", auth, async (req, res) => {
+  try {
+    const { mode } = req.body; // 'me' or 'everyone'
+    const message = await Message.findById(req.params.messageId);
+    if (!message) return res.status(404).json({ message: "Message not found" });
+
+    if (mode === 'everyone') {
+      if (message.sender.toString() !== req.user.userId) {
+        return res.status(403).json({ message: "Unauthorized: Only sender can delete for everyone" });
+      }
+      message.isDeletedForEveryone = true;
+      message.content = "This message was deleted";
+      message.fileUrl = null;
+      message.fileType = null;
+    } else {
+      // mode === 'me'
+      if (!message.deletedBy.includes(req.user.userId)) {
+        message.deletedBy.push(req.user.userId);
+      }
+    }
+    
+    await message.save();
+    res.json({ success: true, messageId: message._id, mode });
+  } catch (err) {
+    res.status(500).json({ message: "Server error during deletion" });
+  }
+});
+
+// User-specific Clear Chat
+router.post("/clear", auth, async (req, res) => {
+  try {
+    const { userId, groupId } = req.body;
+    const currentUserId = req.user.userId;
+
+    let query = {};
+    if (groupId) {
+      query = { group: groupId };
+    } else if (userId) {
+      query = {
+        $or: [
+          { sender: currentUserId, recipient: userId },
+          { sender: userId, recipient: currentUserId }
+        ]
+      };
+    } else {
+      return res.status(400).json({ message: "Target userId or groupId required" });
+    }
+
+    await Message.updateMany(query, {
+      $addToSet: { deletedBy: currentUserId }
+    });
+
+    res.json({ success: true, message: "Chat cleared for you" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error clearing chat" });
+  }
+});
+
 router.get("/conversations", auth, async (req, res) => {
   try {
     const currentUserId = req.user.userId;
@@ -150,13 +228,15 @@ router.get("/conversations", auth, async (req, res) => {
           $or: [
             { sender: currentUserId, recipient: user._id },
             { sender: user._id, recipient: currentUserId }
-          ]
+          ],
+          deletedBy: { $ne: currentUserId }
         }).sort({ timestamp: -1 });
 
         const unreadCount = await Message.countDocuments({
           sender: user._id,
           recipient: currentUserId,
-          read: false
+          read: false,
+          deletedBy: { $ne: currentUserId }
         });
 
         return {
@@ -174,7 +254,10 @@ router.get("/conversations", auth, async (req, res) => {
         };
       }),
       ...groups.map(async (group) => {
-        const lastMsg = await Message.findOne({ group: group._id })
+        const lastMsg = await Message.findOne({ 
+          group: group._id,
+          deletedBy: { $ne: currentUserId }
+        })
           .sort({ timestamp: -1 })
           .populate("sender", "username");
 
@@ -225,7 +308,7 @@ router.get("/activity", auth, async (req, res) => {
   }
 });
 
-router.delete("/recent/:userId/:recipientId", async (req, res) => {
+router.delete("/recent/:userId/:recipientId", auth, async (req, res) => {
   try {
     const { userId, recipientId } = req.params;
     const user = await User.findById(userId);
@@ -248,6 +331,42 @@ router.delete("/recent/:userId/:recipientId", async (req, res) => {
   } catch (err) {
     console.error("Delete recent chat error:", err);
     res.status(500).json({ message: "Server error while deleting recent chat" });
+  }
+});
+
+// Block a user
+router.post("/block/:userId", auth, async (req, res) => {
+  try {
+    const targetUserId = req.params.userId;
+    const currentUserId = req.user.userId;
+
+    if (targetUserId === currentUserId) {
+      return res.status(400).json({ message: "You cannot block yourself" });
+    }
+
+    await User.findByIdAndUpdate(currentUserId, {
+      $addToSet: { blockedUsers: targetUserId }
+    });
+
+    res.json({ success: true, message: "User blocked successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error during blocking" });
+  }
+});
+
+// Unblock a user
+router.post("/unblock/:userId", auth, async (req, res) => {
+  try {
+    const targetUserId = req.params.userId;
+    const currentUserId = req.user.userId;
+
+    await User.findByIdAndUpdate(currentUserId, {
+      $pull: { blockedUsers: targetUserId }
+    });
+
+    res.json({ success: true, message: "User unblocked successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error during unblocking" });
   }
 });
 

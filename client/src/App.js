@@ -10,6 +10,7 @@ import {
 } from "@mui/material";
 import { AnimatePresence, motion } from "framer-motion";
 import { UIProvider } from "./context/UIProvider";
+import { SocketProvider } from "./context/SocketProvider";
 import Login from "./components/Login";
 import Register from "./components/Register";
 import Dashboard from "./components/Dashboard";
@@ -38,6 +39,32 @@ const MainContent = styled(Box)(({ theme }) => ({
   [theme.breakpoints.down("sm")]: {
     marginTop: theme.spacing(7),
   },
+}));
+
+const WaterMark = styled(Typography)(({ theme }) => ({
+  position: "fixed",
+  bottom: 40,
+  right: 40,
+  opacity: 0.03,
+  fontWeight: 900,
+  fontSize: "8rem",
+  pointerEvents: "none",
+  userSelect: "none",
+  zIndex: 0,
+  textTransform: "uppercase",
+  letterSpacing: "20px",
+  color: theme.palette.primary.main,
+  display: theme.breakpoints.down('sm') ? 'none' : 'block',
+  "&::after": {
+      content: '""',
+      position: 'absolute',
+      bottom: 20,
+      left: 0,
+      width: '100%',
+      height: '8px',
+      background: theme.palette.secondary.main,
+      opacity: 0.5,
+  }
 }));
 
 const PageWrapper = ({ children }) => (
@@ -200,15 +227,18 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <UIProvider>
-        <Router>
-          <AppContainer>
-            <Navbar token={token} setToken={setToken} toggleTheme={toggleTheme} mode={mode} />
-            <MainContent>
-              <AnimatedRoutes token={token} setToken={setToken} toggleTheme={toggleTheme} />
-            </MainContent>
-            <Footer />
-          </AppContainer>
-        </Router>
+        <SocketProvider token={token}>
+          <Router>
+            <AppContainer>
+              <Navbar token={token} setToken={setToken} toggleTheme={toggleTheme} mode={mode} />
+              <MainContent>
+                <AnimatedRoutes token={token} setToken={setToken} toggleTheme={toggleTheme} />
+                <WaterMark variant="h1">Orbit</WaterMark>
+              </MainContent>
+              <Footer />
+            </AppContainer>
+          </Router>
+        </SocketProvider>
       </UIProvider>
     </ThemeProvider>
   );

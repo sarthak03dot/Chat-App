@@ -100,7 +100,7 @@ export const UIProvider = ({ children }) => {
         open={toast.open}
         autoHideDuration={4000}
         onClose={hideToast}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         TransitionComponent={Slide}
       >
         <ToastCard
